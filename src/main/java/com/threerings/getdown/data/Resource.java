@@ -125,23 +125,31 @@ public class Resource
         }
     }
 
+   public boolean unpack (File target) {
+      if (!_local.getPath().endsWith(".jar")) {
+         log.warning("Requested to unpack non-jar file '" + _local + "'.");
+         return false;
+      }
+
+      if (!target.isAbsolute()) {
+         return unpack(new File(_local.getParentFile().getAbsolutePath() + File.separator + target));
+      }
+
+      try {
+         return FileUtil.unpackJar(new JarFile(_local), target);
+      } catch (IOException ioe) {
+         log.warning("Failed to create JarFile from '" + _local + "': " + ioe);
+         return false;
+      }
+   }
+
+
     /**
      * Unpacks this resource file into the directory that contains it. Returns
      * false if an error occurs while unpacking it.
      */
-    public boolean unpack ()
-    {
-        // sanity check
-        if (!_local.getPath().endsWith(".jar")) {
-            log.warning("Requested to unpack non-jar file '" + _local + "'.");
-            return false;
-        }
-        try {
-            return FileUtil.unpackJar(new JarFile(_local), _local.getParentFile());
-        } catch (IOException ioe) {
-            log.warning("Failed to create JarFile from '" + _local + "': " + ioe);
-            return false;
-        }
+    public boolean unpack () {
+       return unpack(_local.getParentFile().getAbsoluteFile());
     }
 
     /**

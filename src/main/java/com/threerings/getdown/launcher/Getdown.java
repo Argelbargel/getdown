@@ -587,7 +587,7 @@ public abstract class Getdown extends Thread
         reportTrackingEvent("jvm_unpack", -1);
 
         updateStatus("m.unpacking_java");
-        if (!vmjar.unpack()) {
+        if (!vmjar.unpack(new File(LaunchUtil.LOCAL_JAVA_DIR))) {
             throw new IOException("m.java_unpack_failed");
         }
         vmjar.markAsValid();

@@ -49,6 +49,7 @@ import java.util.regex.Pattern;
 
 import javax.swing.JApplet;
 
+import com.threerings.getdown.util.RuntimeVersionParser;
 import org.apache.commons.codec.binary.Base64;
 
 import com.samskivert.io.StreamUtil;
@@ -88,7 +89,7 @@ public class Application
     /** Suffix used for control file signatures. */
     public static final String SIGNATURE_SUFFIX = ".sig";
 
-    /** Used to communicate information about the UI displayed when updating the application. */
+   /** Used to communicate information about the UI displayed when updating the application. */
     public static class UpdateInterface
     {
         /**
@@ -223,7 +224,7 @@ public class Application
     /**
      * Creates an application instance with no signers.
      *
-     * @see #Application(File, String, Object[], String[], String[])
+     * @see #Application(File, String, List, String[], String[])
      */
     public Application (File appdir, String appid)
     {
@@ -390,8 +391,7 @@ public class Application
      * place of the installed VM (in the case where the VM that launched Getdown does not meet the
      * application's version requirements) or null if no VM is available for this platform.
      */
-    public Resource getJavaVMResource ()
-    {
+    public Resource getJavaVMResource () {
         if (StringUtil.isBlank(_javaLocation)) {
             return null;
         }
@@ -533,10 +533,6 @@ public class Application
         String vstr = (String)cdata.get("version");
         if (vstr != null) _version = parseLong(vstr, "m.invalid_version");
 
-        // check to see if we require a particular max JVM version and have a supplied JVM
-        vstr = (String)cdata.get("java_max_version");
-        if (vstr != null) _javaMaxVersion = (int)parseLong(vstr, "m.invalid_java_version");
-
         // if we are a versioned deployment, create a versioned appbase
         try {
             _vappbase = (_version < 0) ? new URL(_appbase) : createVAppBase(_version);
@@ -566,11 +562,15 @@ public class Application
 
         // check to see if we require a particular JVM version and have a supplied JVM
         vstr = (String)cdata.get("java_version");
-        if (vstr != null) _javaMinVersion = (int)parseLong(vstr, "m.invalid_java_version");
+        if (vstr != null) _javaMinVersion = parseJavaVersion(vstr, "m.invalid_java_version");
         // we support java_min_version as an alias of java_version; it better expresses the check
         // that's going on and better mirrors java_max_version
         vstr = (String)cdata.get("java_min_version");
-        if (vstr != null) _javaMinVersion = (int)parseLong(vstr, "m.invalid_java_version");
+        if (vstr != null) _javaMinVersion = parseJavaVersion(vstr, "m.invalid_java_version");
+
+        // check to see if we require a particular max JVM version and have a supplied JVM
+        vstr = (String)cdata.get("java_max_version");
+        if (vstr != null) _javaMaxVersion = parseJavaVersion(vstr, "m.invalid_java_version");
 
         // check to see if we require a particular JVM version and have a supplied JVM
         vstr = (String)cdata.get("java_exact_version_required");
@@ -792,22 +792,16 @@ public class Application
             return true;
         }
 
-        // parse the version out of the java.version system property
-        String verstr = System.getProperty("java.version");
-        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(verstr);
-        if (!m.matches()) {
-            // if we can't parse the java version we're in weird land and should probably just try
-            // our luck with what we've got rather than try to download a new jvm
-            log.warning("Unable to parse VM version, hoping for the best",
-                        "version", verstr, "needed", _javaMinVersion);
-            return true;
+        int version;
+        try {
+           version = parseJavaVersion(System.getProperty("java.version"), "");
+        } catch (IOException e) {
+           // if we can't parse the java version we're in weird land and should probably just try
+           // our luck with what we've got rather than try to download a new jvm
+           log.warning("Unable to parse VM version, hoping for the best",
+                 "version", System.getProperty("java.version"), "needed", _javaMinVersion);
+           return true;
         }
-
-        int major = Integer.parseInt(m.group(1));
-        int minor = Integer.parseInt(m.group(2));
-        int revis = Integer.parseInt(m.group(3));
-        int patch = m.group(4) == null ? 0 : Integer.parseInt(m.group(4).substring(1));
-        int version = patch + 100 * (revis + 100 * (minor + 100 * major));
 
         if (_javaExactVersionRequired) {
             if (version == _javaMinVersion) {
@@ -1680,6 +1674,15 @@ public class Application
         }
         return appbase;
     }
+
+   protected static int parseJavaVersion (String value, String errkey) throws IOException {
+      try {
+         return new RuntimeVersionParser().parse(value);
+      } catch (Exception e) {
+         String err = MessageUtil.tcompose(errkey, value);
+         throw (IOException) new IOException(err).initCause(e);
+      }
+   }
 
     /**
      * Parses and returns a long. {@code value} must be non-null.
