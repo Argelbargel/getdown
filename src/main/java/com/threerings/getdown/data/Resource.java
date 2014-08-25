@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 
 import com.samskivert.io.StreamUtil;
 import com.samskivert.util.FileUtil;
@@ -32,6 +33,7 @@ import static com.threerings.getdown.Log.log;
  */
 public class Resource
 {
+   private static final Pattern VALID_ARCHIVE_FILE_PATTERN = Pattern.compile("^.*" + Pattern.quote(".") + "(jar|zip)$");
     /**
      * Creates a resource with the supplied remote URL and local path.
      */
@@ -126,8 +128,8 @@ public class Resource
     }
 
    public boolean unpack (File target) {
-      if (!_local.getPath().endsWith(".jar")) {
-         log.warning("Requested to unpack non-jar file '" + _local + "'.");
+      if (!isValidArchive(_local)) {
+         log.warning("Requested to unpack invalid archive file '" + _local + "'.");
          return false;
       }
 
@@ -143,8 +145,12 @@ public class Resource
       }
    }
 
+   static boolean isValidArchive(File file) {
+      return VALID_ARCHIVE_FILE_PATTERN.matcher(file.getName()).matches();
+   }
 
-    /**
+
+   /**
      * Unpacks this resource file into the directory that contains it. Returns
      * false if an error occurs while unpacking it.
      */

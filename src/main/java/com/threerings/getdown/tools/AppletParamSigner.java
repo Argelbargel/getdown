@@ -11,6 +11,7 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Signature;
 
+import com.threerings.getdown.data.Digest;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -41,7 +42,7 @@ public class AppletParamSigner
             store.load(new BufferedInputStream(new FileInputStream(keystore)),
                        storepass.toCharArray());
             PrivateKey key = (PrivateKey)store.getKey(alias, keypass.toCharArray());
-            Signature sig = Signature.getInstance("SHA1withRSA");
+            Signature sig = Signature.getInstance(Digest.SIGNATURE_ALGORITHM);
             sig.initSign(key);
             sig.update(params.getBytes());
             String signed = new String(Base64.encodeBase64(sig.sign()));

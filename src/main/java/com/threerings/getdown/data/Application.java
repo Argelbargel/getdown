@@ -86,8 +86,6 @@ public class Application
      * application (minus this prefix). */
     public static final String PROP_PASSTHROUGH_PREFIX = "app.";
 
-    /** Suffix used for control file signatures. */
-    public static final String SIGNATURE_SUFFIX = ".sig";
 
    /** Used to communicate information about the UI displayed when updating the application. */
     public static class UpdateInterface
@@ -1428,54 +1426,15 @@ public class Application
                 log.info("No signers, not verifying file", "path", path);
 
             } else {
-                File signatureFile = downloadFile(path + SIGNATURE_SUFFIX);
-                byte[] signature = null;
-                FileReader reader = null;
+                File signatureFile = downloadFile(path + Digest.SIGNATURE_SUFFIX);
                 try {
-                    reader = new FileReader(signatureFile);
-                    signature = StreamUtil.toByteArray(new FileInputStream(signatureFile));
-                } finally {
-                    StreamUtil.close(reader);
-                    signatureFile.delete(); // delete the file regardless
-                }
-
-                byte[] buffer = new byte[8192];
-                int length, validated = 0;
-                for (Certificate cert : _signers) {
-                    FileInputStream dataInput = null;
-                    try {
-                        dataInput = new FileInputStream(target);
-                        Signature sig = Signature.getInstance("SHA1withRSA");
-                        sig.initVerify(cert);
-                        while ((length = dataInput.read(buffer)) != -1) {
-                            sig.update(buffer, 0, length);
-                        }
-
-                        if (!sig.verify(Base64.decodeBase64(signature))) {
-                            log.info("Signature does not match", "cert", cert.getPublicKey());
-                            continue;
-                        } else {
-                            log.info("Signature matches", "cert", cert.getPublicKey());
-                            validated++;
-                        }
-
-                    } catch (IOException ioe) {
-                        log.warning("Failure validating signature of " + target + ": " + ioe);
-
-                    } catch (GeneralSecurityException gse) {
-                        // no problem!
-
-                    } finally {
-                        StreamUtil.close(dataInput);
-                        dataInput = null;
+                    if (!Digest.verify(target, signatureFile, _signers)) {
+                        // delete the temporary digest file as we know it is invalid
+                        target.delete();
+                        throw new IOException("m.corrupt_digest_signature_error");
                     }
-                }
-
-                // if we couldn't find a key that validates our digest, we are the hosed!
-                if (validated == 0) {
-                    // delete the temporary digest file as we know it is invalid
-                    target.delete();
-                    throw new IOException("m.corrupt_digest_signature_error");
+                } finally {
+                    signatureFile.delete(); // delete the file regardless
                 }
             }
         }

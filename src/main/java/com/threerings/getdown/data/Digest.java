@@ -5,23 +5,22 @@
 
 package com.threerings.getdown.data;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.*;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 
+import java.security.cert.*;
+import java.security.cert.Certificate;
 import java.util.HashMap;
 import java.util.List;
 
+import com.samskivert.io.StreamUtil;
 import com.samskivert.text.MessageUtil;
 import com.samskivert.util.StringUtil;
 
 import com.threerings.getdown.util.ConfigUtil;
 import com.threerings.getdown.util.ProgressObserver;
+import org.apache.commons.codec.binary.Base64;
 
 import static com.threerings.getdown.Log.log;
 
@@ -33,8 +32,11 @@ public class Digest
 {
     /** The name of our MD5 digest file. */
     public static final String DIGEST_FILE = "digest.txt";
+    public static final String SIGNATURE_ALGORITHM = "SHA1withRSA";
+    /** Suffix used for control file signatures. */
+    public static final String SIGNATURE_SUFFIX = ".sig";
 
-    /**
+   /**
      * Creates a digest instance which will parse and validate the <code>digest.txt</code> in the
      * supplied application directory.
      */
@@ -124,6 +126,101 @@ public class Digest
         pout.println(DIGEST_FILE + " = " + StringUtil.hexlate(md.digest(contents)));
 
         pout.close();
+    }
+
+    public static void signDigest(File appdir, File storePath, String storePass, String storeAlias) throws IOException, GeneralSecurityException {
+        writeDigestSignature(appdir, calculateDigestSignature(appdir, loadKey(storePath, storePass, storeAlias)));
+    }
+
+    private static PrivateKey loadKey(File storePath, String storePass, String storeAlias) throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
+        KeyStore store = KeyStore.getInstance("JKS");
+        FileInputStream fis = new FileInputStream(storePath);
+        try {
+            store.load(fis, storePass.toCharArray());
+            return (PrivateKey) store.getKey(storeAlias, storePass.toCharArray());
+        } finally {
+            fis.close();
+        }
+    }
+
+    private static Signature calculateDigestSignature(File appdir, PrivateKey key) throws NoSuchAlgorithmException, InvalidKeyException, IOException, SignatureException {
+        Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+
+        FileInputStream fis = new FileInputStream(new File(appdir, DIGEST_FILE));
+        try {
+            sig.initSign(key);
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = fis.read(buffer)) != -1) {
+                sig.update(buffer, 0, length);
+            }
+        } finally {
+            fis.close();
+        }
+
+        return sig;
+    }
+
+    private static void writeDigestSignature(File appdir, Signature sig) throws SignatureException, IOException {
+        FileOutputStream signatureOutput = new FileOutputStream(new File(appdir, DIGEST_FILE + SIGNATURE_SUFFIX));
+        try {
+            String signed = new String(Base64.encodeBase64(sig.sign()));
+            signatureOutput.write(signed.getBytes("utf8"));
+        } finally {
+            signatureOutput.close();
+        }
+    }
+
+    public static boolean verify(File target, File signatureFile, List<Certificate> certificates) throws IOException {
+        byte[] signature = readSignature(signatureFile);
+
+        try {
+            for (Certificate cert : certificates) {
+                if (!verifyDigestSignature(target, cert, signature)) {
+                    log.info("Signature does not match", "cert", cert.getPublicKey());
+                } else {
+                    log.info("Signature matches", "cert", cert.getPublicKey());
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            log.warning("Failure validating signature of " + target + ": " + e);
+        }
+
+        return false;
+    }
+
+    private static byte[] readSignature(File signatureFile) throws IOException {
+        FileReader reader = null;
+
+        try {
+            reader = new FileReader(signatureFile);
+            return StreamUtil.toByteArray(new FileInputStream(signatureFile));
+        } finally {
+            StreamUtil.close(reader);
+        }
+    }
+
+    private static boolean verifyDigestSignature(File target, Certificate cert, byte[] signature) throws IOException, NoSuchAlgorithmException {
+        Signature sig = Signature.getInstance(Digest.SIGNATURE_ALGORITHM);
+
+        FileInputStream dataInput = null;
+        try {
+            dataInput = new FileInputStream(target);
+            sig.initVerify(cert);
+
+            int length;
+            byte[] buffer = new byte[8192];
+            while ((length = dataInput.read(buffer)) != -1) {
+                sig.update(buffer, 0, length);
+            }
+
+            return sig.verify(Base64.decodeBase64(signature));
+        } catch (GeneralSecurityException gse) {
+            return false;
+        } finally {
+            StreamUtil.close(dataInput);
+        }
     }
 
     /**

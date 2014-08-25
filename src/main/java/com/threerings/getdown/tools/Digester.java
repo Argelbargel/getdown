@@ -6,19 +6,12 @@
 package com.threerings.getdown.tools;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.Signature;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.commons.codec.binary.Base64;
 
 import com.threerings.getdown.data.Application;
 import com.threerings.getdown.data.Digest;
@@ -29,7 +22,8 @@ import com.threerings.getdown.data.Resource;
  */
 public class Digester
 {
-    /**
+
+   /**
      * A command line entry point for the digester.
      */
     public static void main (String[] args)
@@ -78,29 +72,6 @@ public class Digester
     public static void signDigest (File appdir, File storePath, String storePass, String storeAlias)
         throws IOException, GeneralSecurityException
     {
-        File inputFile = new File(appdir, Digest.DIGEST_FILE);
-        File signatureFile = new File(appdir, Digest.DIGEST_FILE + Application.SIGNATURE_SUFFIX);
-
-        // initialize the keystore
-        KeyStore store = KeyStore.getInstance("JKS");
-        FileInputStream storeInput = new FileInputStream(storePath);
-        store.load(storeInput, storePass.toCharArray());
-        PrivateKey key = (PrivateKey)store.getKey(storeAlias, storePass.toCharArray());
-
-        // sign the digest file
-        Signature sig = Signature.getInstance("SHA1withRSA");
-        FileInputStream dataInput = new FileInputStream(inputFile);
-        byte[] buffer = new byte[8192];
-        int length;
-
-        sig.initSign(key);
-        while ((length = dataInput.read(buffer)) != -1) {
-            sig.update(buffer, 0, length);
-        }
-
-        // Write out the signature
-        FileOutputStream signatureOutput = new FileOutputStream(signatureFile);
-        String signed = new String(Base64.encodeBase64(sig.sign()));
-        signatureOutput.write(signed.getBytes("utf8"));
+        Digest.signDigest(appdir, storePath, storePass, storeAlias);
     }
 }

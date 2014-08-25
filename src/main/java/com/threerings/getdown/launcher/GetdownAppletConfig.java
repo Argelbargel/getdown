@@ -23,8 +23,6 @@ import javax.swing.JApplet;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.data.Application;
-import com.threerings.getdown.launcher.ImageLoader;
-import com.threerings.getdown.launcher.RotatingBackgrounds;
 import com.threerings.getdown.util.ConfigUtil;
 
 import static com.threerings.getdown.Log.log;
@@ -216,7 +214,7 @@ public class GetdownAppletConfig
     /**
      * Sets getdown status panel size and text color from applet params.
      */
-    public void config (Getdown getdown)
+    public void config (GetdownController getdown)
     {
         if (statusBounds != null) {
             getdown._ifc.status = statusBounds;

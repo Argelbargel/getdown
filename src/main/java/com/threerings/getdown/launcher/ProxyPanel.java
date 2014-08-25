@@ -33,7 +33,7 @@ import static com.threerings.getdown.Log.log;
 public class ProxyPanel extends JPanel
     implements ActionListener
 {
-    public ProxyPanel (Getdown getdown, ResourceBundle msgs)
+    public ProxyPanel (GetdownController getdown, ResourceBundle msgs)
     {
         _getdown = getdown;
         _msgs = msgs;
@@ -136,7 +136,7 @@ public class ProxyPanel extends JPanel
         }
     }
 
-    protected Getdown _getdown;
+    protected GetdownController _getdown;
     protected ResourceBundle _msgs;
 
     protected JTextField _host;

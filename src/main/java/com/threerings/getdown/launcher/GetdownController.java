@@ -77,22 +77,16 @@ import static com.threerings.getdown.Log.log;
 /**
  * Manages the main control for the Getdown application updater and deployment system.
  */
-public abstract class Getdown extends Thread
+public abstract class GetdownController extends Thread
     implements Application.StatusDisplay, ImageLoader
 {
-    public static void main (String[] args)
-    {
-        // legacy support
-        GetdownApp.main(args);
-    }
-
-    public Getdown (File appDir, String appId)
+    public GetdownController(File appDir, String appId)
     {
         this(appDir, appId, null, null, null);
     }
 
-    public Getdown (File appDir, String appId, List<Certificate> signers,
-                    String[] jvmargs, String[] appargs)
+    public GetdownController(File appDir, String appId, List<Certificate> signers,
+                             String[] jvmargs, String[] appargs)
     {
         super("Getdown");
         try {
@@ -966,7 +960,7 @@ public abstract class Getdown extends Thread
                             "The rotating images are being used.");
             }
             return new RotatingBackgrounds(_ifc.rotatingBackgrounds, _ifc.errorBackground,
-                Getdown.this);
+                GetdownController.this);
         } else if (_ifc.backgroundImage != null) {
             return new RotatingBackgrounds(loadImage(_ifc.backgroundImage));
         } else {
@@ -985,7 +979,7 @@ public abstract class Getdown extends Thread
             exit(0);
         } else {
             if (_abort == null) {
-                _abort = new AbortPanel(Getdown.this, _msgs);
+                _abort = new AbortPanel(GetdownController.this, _msgs);
             }
             _abort.pack();
             SwingUtil.centerWindow(_abort);

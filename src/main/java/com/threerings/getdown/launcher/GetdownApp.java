@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -79,6 +80,17 @@ public class GetdownApp
             }
         }
 
+        List<Certificate> signers = new ArrayList<Certificate>();
+        Object[] classSigners = GetdownApp.class.getSigners();
+        if (classSigners != null) {
+           for (Object signer : classSigners) {
+              if (signer instanceof Certificate) {
+                 Certificate c = ((Certificate) signer);
+                 signers.add(c);
+              }
+           }
+        }
+
         // record a few things for posterity
         log.info("------------------ VM Info ------------------");
         log.info("-- OS Name: " + System.getProperty("os.name"));
@@ -89,10 +101,14 @@ public class GetdownApp
         log.info("-- User Name: " + System.getProperty("user.name"));
         log.info("-- User Home: " + System.getProperty("user.home"));
         log.info("-- Cur dir: " + System.getProperty("user.dir"));
+        if (!signers.isEmpty()) {
+           log.info("class " + GetdownApp.class.getSimpleName() + " is signed. Using signers to validate resources");
+        }
         log.info("---------------------------------------------");
 
+
         try {
-            Getdown app = new Getdown(appDir, appId, null, null, appArgs) {
+            GetdownController app = new GetdownController(appDir, appId, signers, null, appArgs) {
                 @Override
                 protected Container createContainer () {
                     // create our user interface, and display it

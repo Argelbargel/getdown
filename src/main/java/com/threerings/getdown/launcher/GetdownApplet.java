@@ -99,7 +99,7 @@ public class GetdownApplet extends JApplet
                     }
                 }
             }
-            _getdown = new Getdown(_config.appdir, null, signers,
+            _getdown = new GetdownController(_config.appdir, null, signers,
                                    _config.jvmargs, _config.appargs) {
                 @Override
                 protected Container createContainer () {
@@ -327,7 +327,7 @@ public class GetdownApplet extends JApplet
     protected GetdownAppletConfig _config;
 
     /** Handles all the actual getting down. */
-    protected Getdown _getdown;
+    protected GetdownController _getdown;
 
     /** An error encountered during initialization. */
     protected String _errmsg;
