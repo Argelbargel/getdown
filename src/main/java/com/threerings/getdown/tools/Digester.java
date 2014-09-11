@@ -5,17 +5,17 @@
 
 package com.threerings.getdown.tools;
 
+import com.threerings.getdown.data.Application;
+import com.threerings.getdown.data.Digests;
+import com.threerings.getdown.data.ResourceGroup;
+import com.threerings.getdown.util.DigestsUtil;
+import com.threerings.getdown.util.SecurityUtil;
+import com.threerings.getdown.util.VersionUtil;
+
 import java.io.File;
 import java.io.IOException;
-
 import java.security.GeneralSecurityException;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Digest;
-import com.threerings.getdown.data.Resource;
+import java.security.PrivateKey;
 
 /**
  * Handles the generation of the digest.txt file.
@@ -34,44 +34,42 @@ public class Digester
             System.exit(255);
         }
 
-        createDigest(new File(args[0]));
-        if (args.length == 4) {
-            signDigest(new File(args[0]), new File(args[1]), args[2], args[3]);
+        File appdir = new File(args[0]);
+        File keystore = (args.length > 1) ? new File(args[1]) : null;
+        String password = (args.length > 2) ? args[2] : "";
+        String alias = (args.length > 3) ? args[3] : "";
+
+        writeDigests(appdir, keystore, password, alias);
+    }
+
+    public static void writeDigests(File appdir, File keystore, String password, String alias) throws IOException, GeneralSecurityException {
+        Digests digests = createDigests(appdir);
+        PrivateKey key = null;
+        if (keystore != null) {
+            key = SecurityUtil.loadPrivateKey(keystore, password, alias);
         }
+        DigestsUtil.writeDigests(appdir, digests, key);
     }
 
     /**
      * Creates a digest file in the specified application directory.
      */
-    public static void createDigest (File appdir)
-        throws IOException
-    {
-        File target = new File(appdir, Digest.DIGEST_FILE);
-        System.out.println("Generating digest file '" + target + "'...");
-
+    private static Digests createDigests(File appdir) throws IOException {
         // create our application and instruct it to parse its business
         Application app = new Application(appdir, null);
         app.init(false);
 
-        List<Resource> rsrcs = new ArrayList<Resource>();
-        rsrcs.add(app.getConfigResource());
-        rsrcs.addAll(app.getCodeResources());
-        rsrcs.addAll(app.getResources());
+        ResourceGroup rsrcs = new ResourceGroup();
+        rsrcs.addResources(app.getConfigResource());
+        rsrcs.addResources(app.getCodeResources());
+        rsrcs.addResources(app.getResources());
         for (Application.AuxGroup ag : app.getAuxGroups()) {
-            rsrcs.addAll(ag.codes);
-            rsrcs.addAll(ag.rsrcs);
+            ResourceGroup srsrcs = rsrcs.getSubgroup(ag.name);
+            srsrcs.addResources(ag.codes);
+            srsrcs.addResources(ag.rsrcs);
         }
 
-        // now generate the digest file
-        Digest.createDigest(rsrcs, target);
-    }
 
-    /**
-     * Creates a digest file in the specified application directory.
-     */
-    public static void signDigest (File appdir, File storePath, String storePass, String storeAlias)
-        throws IOException, GeneralSecurityException
-    {
-        Digest.signDigest(appdir, storePath, storePass, storeAlias);
+        return Digests.create(rsrcs, VersionUtil.readLocalVersion(appdir));
     }
 }

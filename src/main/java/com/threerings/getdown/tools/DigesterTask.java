@@ -5,13 +5,12 @@
 
 package com.threerings.getdown.tools;
 
-import java.io.File;
-import java.io.IOException;
-
-import java.security.GeneralSecurityException;
-
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
+
+import java.io.File;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 /**
  * An ant task used to create a <code>digest.txt</code> for a Getdown
@@ -72,10 +71,7 @@ public class DigesterTask extends Task
         }
 
         try {
-            Digester.createDigest(_appdir);
-            if (_storepath != null) {
-                Digester.signDigest(_appdir, _storepath, _storepass, _storealias);
-            }
+            Digester.writeDigests(_appdir, _storepath, _storepass, _storealias);
         } catch (IOException ioe) {
             throw new BuildException("Error creating digest: " + ioe.getMessage(), ioe);
         } catch (GeneralSecurityException gse) {

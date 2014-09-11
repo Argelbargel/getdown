@@ -386,9 +386,18 @@ public abstract class GetdownController extends Thread
                 // make sure we have the desired version and that the metadata files are valid...
                 setStep(Step.VERIFY_METADATA);
                 setStatus("m.validating", -1, -1L, false);
-                if (_app.verifyMetadata(this)) {
-                    log.info("Application requires update.");
-                    update();
+                String currentVersion = _app.getVersion();
+                String targetVersion = _app.verifyMetadata(this);
+                if (VersionUtil.compareVersions(currentVersion, targetVersion) < 0) {
+                    StringBuilder sb = new StringBuilder("Application requires update");
+                    if (VersionUtil.isValidVersion(currentVersion)) {
+                        sb.append(" from ").append(currentVersion);
+                    }
+                    if (VersionUtil.compareVersions(currentVersion, targetVersion) < 0) {
+                        sb.append(" to ").append(targetVersion);
+                    }
+                    log.info(sb.toString());
+                    update(currentVersion, targetVersion);
                     // loop back again and reverify the metadata
                     continue;
                 }
@@ -404,17 +413,17 @@ public abstract class GetdownController extends Thread
                     // not have unpacked all of our resources yet
                     if (Boolean.getBoolean("check_unpacked")) {
                         File ufile = _app.getLocalPath("unpacked.dat");
-                        long version = -1;
-                        long aversion = _app.getVersion();
+                        String localVersion = VersionUtil.NO_VERSION;
+                        String aversion = _app.getVersion();
                         if (!ufile.exists()) {
                             ufile.createNewFile();
                         } else {
-                            version = Long.parseLong(VersionUtil.readLocalVersion(ufile));
+                            localVersion = VersionUtil.readLocalVersion(ufile);
                         }
 
-                        if (version < aversion) {
+                        if (VersionUtil.compareVersions(localVersion, aversion) < 0) {
                             log.info("Performing unpack.",
-                                    "version", version, "aversion", aversion);
+                                    "version", localVersion, "aversion", aversion);
                             setStep(Step.UNPACK);
                             updateStatus("m.validating");
                             _app.unpackResources(_progobs, unpacked);
@@ -578,36 +587,45 @@ public abstract class GetdownController extends Thread
         reportTrackingEvent("jvm_complete", -1);
     }
 
-    /**
-     * Called if the application is determined to be of an old version.
-     */
-    protected void update ()
+    protected void update(String fromVersion, String targetVersion)
         throws IOException, InterruptedException
     {
-        // first clear all validation markers
-        _app.clearValidationMarkers();
+        if (VersionUtil.compareVersions(fromVersion, targetVersion) < 0) {
+            downloadAndApplyPatchesForVersion(targetVersion);
+        }
 
+        _app.updateMetadata(targetVersion);
+        _ifc = _app.init(true);
+    }
+
+    private void downloadAndApplyPatchesForVersion(String targetVersion) throws IOException, InterruptedException {
         // attempt to download the patch files
-        Resource patch = _app.getPatchResource(null);
+        List<Resource> patches = new ArrayList<Resource>();
+        Resource patch = _app.getPatchResource(null, targetVersion);
         if (patch != null) {
-            List<Resource> list = new ArrayList<Resource>();
-            list.add(patch);
+            patches.add(patch);
+        }
 
-            // add the auxiliary group patch files for activated groups
-            for (Application.AuxGroup aux : _app.getAuxGroups()) {
-                if (_app.isAuxGroupActive(aux.name)) {
-                    patch = _app.getPatchResource(aux.name);
-                    if (patch != null) {
-                        list.add(patch);
-                    }
+        // add the auxiliary group patch files for activated groups
+        for (Application.AuxGroup aux : _app.getAuxGroups()) {
+            if (_app.isAuxGroupActive(aux.name)) {
+                patch = _app.getPatchResource(aux.name, targetVersion);
+                if (patch != null) {
+                    patches.add(patch);
                 }
             }
+        }
 
+        applyPatches(patches);
+    }
+
+    private void applyPatches(List<Resource> patches) throws IOException, InterruptedException {
+        if (!patches.isEmpty()) {
             // show the patch notes button, if applicable
             if (!StringUtil.isBlank(_ifc.patchNotesUrl)) {
                 createInterface(false);
                 EventQueue.invokeLater(new Runnable() {
-                    public void run () {
+                    public void run() {
                         _patchNotes.setVisible(true);
                     }
                 });
@@ -615,15 +633,15 @@ public abstract class GetdownController extends Thread
 
             // download the patch files...
             setStep(Step.DOWNLOAD);
-            download(list);
+            download(patches);
 
             // and apply them...
             setStep(Step.PATCH);
             updateStatus("m.patching");
 
             // create a new ProgressObserver that divides the different patching phases
-            MetaProgressObserver mprog = new MetaProgressObserver(_progobs, list.size());
-            for (Resource prsrc : list) {
+            MetaProgressObserver mprog = new MetaProgressObserver(_progobs, patches.size());
+            for (Resource prsrc : patches) {
                 mprog.startElement(1);
                 try {
                     Patcher patcher = new Patcher();
@@ -639,15 +657,6 @@ public abstract class GetdownController extends Thread
                 }
             }
         }
-
-        // if the patch resource is null, that means something was booched in the application, so
-        // we skip the patching process but update the metadata which will result in a "brute
-        // force" upgrade
-
-        // finally update our metadata files...
-        _app.updateMetadata();
-        // ...and reinitialize the application
-        _ifc = _app.init(true);
     }
 
     /**

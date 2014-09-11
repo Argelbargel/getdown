@@ -117,71 +117,31 @@ public final class VersionUtil {
      * configuration does not specify a version, it tries to read it from {@link #VERSION_FILE_NAME} in the given
      * application-directory.
      *
+     * If the latest version.txt is present and the version specifyied in there is higher than the local version
+     * the local version-file is updated.
+     *
      * @param appdir the application-directory
      * @param appbase the application's base-url
      * @return the latest version or {@link #NO_VERSION}, if the application is not versioned
      * @throws IOException
      */
     public static String readLatestVersion(File appdir, URL appbase) throws IOException {
-        return readVersion(appdir, createVersionedUrl(appbase, LATEST_VERSION));
-
-    }
-
-
-    /**
-     * reads the  version for the application by the given application-directory and url.
-     *
-     * This implementation first checks the configuration for the given url; if this
-     * configuration does not specify a version, it tries to read it from {@link #VERSION_FILE_NAME} in the given
-     * application-directory.
-     *
-     * @param appdir the application-directory
-     * @param baseUrl the url for which the configuration should be read
-     * @return the latest version or {@link #NO_VERSION}, if the application is not versioned
-     * @throws IOException
-     * @deprecated later versions will enforce the convention that the latest version's url can be found by replacing
-     *             {@link #VERSION_URL_PLACEHOLDER} in the application-base-url with {@link #LATEST_VERSION} and remove
-     *             the "latest"-config-parameter. Likewise this method will be removed from the public API
-     *             Additionally {@link com.threerings.getdown.data.Application} or {@link com.threerings.getdown.data.Configuration}
-     *             should convert the appbase-String into an URL (and report invalid appbases), thus all methods
-     *             accepting the appbase as a String will be removed from the public API
-     *
-     */
-    public static String readVersion(File appdir, String baseUrl) throws IOException {
-        return readVersion(appdir, new URL(baseUrl));
-    }
-
-    /**
-     * reads the version for the application by the given application-directory and url.
-     *
-     * This implementation first checks the version-file of the latest-URL for the the given base-url; if this
-     * url does not specify a version, it tries to read it from {@link #VERSION_FILE_NAME} in the given
-     * application-directory.
-     *
-     * @param appdir the application-directory
-     * @param baseUrl the url for which the configuration should be read
-     * @return the latest version or {@link #NO_VERSION}, if the application is not versioned
-     * @throws IOException
-     * @deprecated later versions will enforce the convention that the latest version's url can be found by replacing
-     *             {@link #VERSION_URL_PLACEHOLDER} in the application-base-url with {@link #LATEST_VERSION} and remove
-     *             the "latest"-config-parameter. Likewise this method will be removed from the public API
-     */
-    public static String readVersion(File appdir, URL baseUrl) throws IOException {
-        String localVersion = readLocalVersion(appdir);
+        URL baseUrl = createVersionedUrl(appbase, LATEST_VERSION);
+        String version = readLocalVersion(appdir);
 
         URL versionURL = new URL(baseUrl, baseUrl.getPath() + "/" + VERSION_FILE_NAME);
 
         try {
             String latestVersion = readVersion(versionURL);
-            if (compareVersions(latestVersion, localVersion) > 0) {
+            if (compareVersions(latestVersion, version) > 0) {
                 writeLocalVersion(appdir, latestVersion);
-                return latestVersion;
+                version = latestVersion;
             }
         } catch (Exception e) {
             log.info("Unable to retrieve version from " + versionURL, e);
         }
 
-        return localVersion;
+        return version;
     }
 
 

@@ -7,11 +7,10 @@ package com.threerings.getdown.tools;
 
 import com.samskivert.io.StreamUtil;
 import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Digest;
 import com.threerings.getdown.data.Resource;
+import com.threerings.getdown.util.DigestsUtil;
 
 import java.io.*;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
@@ -86,7 +85,6 @@ public class Differ
                                 ArrayList<Resource> nrsrcs, boolean verbose)
         throws IOException
     {
-        MessageDigest md = Digest.getMessageDigest();
         JarOutputStream jout = null;
         try {
             jout = new JarOutputStream(
@@ -99,8 +97,8 @@ public class Differ
                 Resource orsrc = (oidx == -1) ? null : orsrcs.remove(oidx);
                 if (orsrc != null) {
                     // first see if they are the same
-                    String odig = orsrc.computeDigest(md, null);
-                    String ndig = rsrc.computeDigest(md, null);
+                    String odig = DigestsUtil.computeResourceDigest(orsrc);
+                    String ndig = DigestsUtil.computeResourceDigest(rsrc);
                     if (odig.equals(ndig)) {
                         if (verbose) {
                             System.out.println("Unchanged: " + rsrc.getPath());

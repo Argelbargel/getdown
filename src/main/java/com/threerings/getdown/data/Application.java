@@ -33,8 +33,6 @@ import java.security.cert.Certificate;
 import java.util.*;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.threerings.getdown.Log.log;
 
@@ -51,6 +49,10 @@ public class Application
     /** System properties that are prefixed with this string will be passed through to our
      * application (minus this prefix). */
     public static final String PROP_PASSTHROUGH_PREFIX = "app.";
+
+    public File getAppdir() {
+        return _appdir;
+    }
 
 
     /** Used to communicate information about the UI displayed when updating the application. */
@@ -329,23 +331,17 @@ public class Application
      *
      * @param auxgroup the auxiliary resource group for which a patch resource is desired or null
      * for the main application patch resource.
+     * @param version
      */
-    public Resource getPatchResource (String auxgroup)
-    {
-        if (_targetVersion <= getVersion()) {
-            log.warning("Requested patch resource for up-to-date or non-versioned application",
-                "cvers", getVersion(), "tvers", _targetVersion);
-            return null;
-        }
-
+    public Resource getPatchResource(String auxgroup, String version) {
         String infix = (auxgroup == null) ? "" : ("-" + auxgroup);
         String pfile = "patch" + infix + getVersion() + ".dat";
         try {
-            URL remote = new URL(createVAppBase(_targetVersion), pfile);
+            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), version), pfile);
             return new Resource(pfile, remote, getLocalPath(pfile), false);
         } catch (Exception e) {
             log.warning("Failed to create patch resource path",
-                "pfile", pfile, "appbase", getAppbase(), "tvers", _targetVersion, "error", e);
+                "pfile", pfile, "appbase", getAppbase(), "tvers", version, "error", e);
             return null;
         }
     }
@@ -355,18 +351,18 @@ public class Application
      * place of the installed VM (in the case where the VM that launched Getdown does not meet the
      * application's version requirements) or null if no VM is available for this platform.
      */
-    public Resource getJavaVMResource () {
+    public Resource getJavaVMResource() {
         if (StringUtil.isBlank(_javaLocation)) {
             return null;
         }
 
         String vmfile = LaunchUtil.LOCAL_JAVA_DIR + ".jar";
         try {
-            URL remote = new URL(createVAppBase(_targetVersion), _javaLocation);
+            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), getVersion()), _javaLocation);
             return new Resource(vmfile, remote, getLocalPath(vmfile), true);
         } catch (Exception e) {
             log.warning("Failed to create VM resource", "vmfile", vmfile, "appbase", getAppbase(),
-                "tvers", _targetVersion, "javaloc", _javaLocation, "error", e);
+                "tvers", getVersion(), "javaloc", _javaLocation, "error", e);
             return null;
         }
     }
@@ -375,15 +371,15 @@ public class Application
      * Returns a resource that can be used to download an archive containing all files belonging to
      * the application.
      */
-    public Resource getFullResource ()
+    public Resource getFullResource (String version)
     {
         String file = "full";
         try {
-            URL remote = new URL(createVAppBase(_targetVersion), file);
+            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), version), file);
             return new Resource(file, remote, getLocalPath(file), false);
         } catch (Exception e) {
             log.warning("Failed to create full resource path",
-                "file", file, "appbase", getAppbase(), "tvers", _targetVersion, "error", e);
+                "file", file, "appbase", getAppbase(), "tvers", version, "error", e);
             return null;
         }
     }
@@ -445,11 +441,12 @@ public class Application
      *
      * @exception IOException thrown if there is an error reading the file or an error encountered
      * during its parsing.
+     * @TODO: move setting of _class, _appbase, _version, _vappbase to updateMetaData
      */
     public UpdateInterface init (boolean checkPlatform)
         throws IOException
     {
-        Map<String,Object> cdata = ConfigUtil.create(_appdir, checkPlatform);
+        Map<String,Object> cdata = ConfigUtil.create(getAppdir(), checkPlatform);
 
 
         // first determine our application base, this way if anything goes wrong later in the
@@ -457,10 +454,10 @@ public class Application
         _appbase = AppbaseUtil.createAppbase((String) cdata.get("appbase"));
 
         // extract our version information
-        _version = Long.parseLong(VersionUtil.readLatestVersion(_appdir, _appbase));
+        _version = VersionUtil.readLatestVersion(getAppdir(), _appbase);
 
         // if we are a versioned deployment, create a versioned appbase
-        _vappbase = VersionUtil.createVersionedUrl(_appbase, String.valueOf(_version));
+        _vappbase = VersionUtil.createVersionedUrl(_appbase, getVersion());
 
 
         String prefix = StringUtil.isBlank(_appid) ? "" : (_appid + ".");
@@ -522,12 +519,7 @@ public class Application
         _trackingGAHash = (String)cdata.get("tracking_ga_hash");
 
         // clear our arrays as we may be reinitializing
-        _codes.clear();
-        _resources.clear();
-        _auxgroups.clear();
-        _jvmargs.clear();
-        _appargs.clear();
-        _txtJvmArgs.clear();
+        clear();
 
         // parse our code resources
         if (ConfigUtil.getMultiValue(cdata, "code") == null) {
@@ -646,6 +638,15 @@ public class Application
         return ui;
     }
 
+    private void clear() {
+        _codes.clear();
+        _resources.clear();
+        _auxgroups.clear();
+        _jvmargs.clear();
+        _appargs.clear();
+        _txtJvmArgs.clear();
+    }
+
     private long extractVersion(Map<String, Object> cdata) throws IOException {
         String vstr = (String)cdata.get("version");
         return parseLong((vstr != null) ? vstr : VersionUtil.NO_VERSION, "m.invalid_version");
@@ -688,7 +689,7 @@ public class Application
      */
     public File getLocalPath (String path)
     {
-        return new File(_appdir, path);
+        return new File(getAppdir(), path);
     }
 
     /**
@@ -767,18 +768,21 @@ public class Application
     /**
      * Downloads and replaces the <code>getdown.txt</code> and <code>digest.txt</code> files with
      * those for the target version of our application.
+     * @param targetVersion
      */
-    public void updateMetadata ()
+    public void updateMetadata(String targetVersion)
         throws IOException
     {
+        _version = targetVersion;
         // update our versioned application base with the target version
-        _vappbase = VersionUtil.createVersionedUrl(_appbase, String.valueOf(_targetVersion));
+        _vappbase = VersionUtil.createVersionedUrl(getAppbase(), targetVersion);
 
         try {
             // now re-download our control files; we download the digest first so that if it fails,
             // our config file will still reference the old version and re-running the updater will
             // start the whole process over again
-            downloadDigestFile();
+            digests = DigestsUtil.downloadDigests(getAppdir(), getAppbase(), getVersion(), _signers);
+            // @TODO: move this and setting of _vappbase etc. to new updateConfig-method?
             downloadConfigFile();
 
         } catch (IOException ex) {
@@ -819,7 +823,7 @@ public class Application
         ArrayList<String> args = new ArrayList<String>();
 
         // reconstruct the path to the JVM
-        args.add(LaunchUtil.getJVMPath(_appdir, _windebug || optimum));
+        args.add(LaunchUtil.getJVMPath(getAppdir(), _windebug || optimum));
 
         // add the classpath arguments
         args.add("-classpath");
@@ -879,7 +883,7 @@ public class Application
         String[] sargs = args.toArray(new String[args.size()]);
         log.info("Running " + StringUtil.join(sargs, "\n  "));
 
-        return Runtime.getRuntime().exec(sargs, envp, _appdir);
+        return Runtime.getRuntime().exec(sargs, envp, getAppdir());
     }
 
     /**
@@ -983,8 +987,8 @@ public class Application
     /** Replaces the application directory and version in any argument. */
     protected String processArg (String arg)
     {
-        arg = arg.replace("%APPDIR%", _appdir.getAbsolutePath());
-        arg = arg.replace("%VERSION%", String.valueOf(getVersion()));
+        arg = arg.replace("%APPDIR%", getAppdir().getAbsolutePath());
+        arg = arg.replace("%VERSION%", getVersion());
         return arg;
     }
 
@@ -1000,8 +1004,7 @@ public class Application
      * @exception IOException thrown if we encounter an unrecoverable error while verifying the
      * metadata.
      */
-    public boolean verifyMetadata (StatusDisplay status)
-        throws IOException
+    public String verifyMetadata (StatusDisplay status) throws IOException
     {
         log.info("Verifying application: " + _vappbase);
         log.info("Version: " + getVersion());
@@ -1015,22 +1018,21 @@ public class Application
 
         // this will read in the contents of the digest file and validate itself
         try {
-            _digest = new Digest(_appdir);
+            digests = DigestsUtil.readDigests(getAppdir(), getVersion());
         } catch (IOException ioe) {
             log.info("Failed to load digest: " + ioe.getMessage() + ". Attempting recovery...");
         }
 
         // if we have no version, then we are running in unversioned mode so we need to download
         // our digest.txt file on every invocation
-        if (getVersion() == -1) {
+        if (!VersionUtil.isValidVersion(getVersion())) {
             // make a note of the old meta-digest, if this changes we need to revalidate all of our
             // resources as one or more of them have also changed
-            String olddig = (_digest == null) ? "" : _digest.getMetaDigest();
+            String olddig = (digests == null) ? "" : digests.getMetaDigest();
             try {
                 status.updateStatus("m.checking");
-                downloadDigestFile();
-                _digest = new Digest(_appdir);
-                if (!olddig.equals(_digest.getMetaDigest())) {
+                digests = DigestsUtil.downloadDigests(getAppdir(), getAppbase(), getVersion(), _signers);
+                if (!olddig.equals(digests.getMetaDigest())) {
                     log.info("Unversioned digest changed. Revalidating...");
                     status.updateStatus("m.validating");
                     clearValidationMarkers();
@@ -1044,25 +1046,23 @@ public class Application
         // regardless of whether we're versioned, if we failed to read the digest from disk, try to
         // redownload the digest file and give it another good college try; this time we allow
         // exceptions to propagate up to the caller as there is nothing else we can do
-        if (_digest == null) {
+        if (digests == null) {
             status.updateStatus("m.updating_metadata");
-            downloadDigestFile();
-            _digest = new Digest(_appdir);
+            digests = DigestsUtil.downloadDigests(getAppdir(), getAppbase(), getVersion(), _signers);
         }
 
         // now verify the contents of our main config file
         Resource crsrc = getConfigResource();
-        if (!_digest.validateResource(crsrc, null)) {
+        if (!DigestsUtil.validateResourceDigest(crsrc, digests)) {
             status.updateStatus("m.updating_metadata");
             // attempt to redownload both of our metadata files; again we pass errors up to our
             // caller because there's nothing we can do to automatically recover
             downloadConfigFile();
-            downloadDigestFile();
-            _digest = new Digest(_appdir);
+            digests = DigestsUtil.downloadDigests(getAppdir(), getAppbase(), getVersion(), _signers);
             // revalidate everything if we end up downloading new metadata
             clearValidationMarkers();
             // if the new copy validates, reinitialize ourselves; otherwise report baffling hoseage
-            if (_digest.validateResource(crsrc, null)) {
+            if (DigestsUtil.validateResourceDigest(crsrc, digests)) {
                 init(true);
             } else {
                 log.warning(ConfigUtil.CONFIG_FILE + " failed to validate even after redownloading. " +
@@ -1071,22 +1071,18 @@ public class Application
         }
 
         // start by assuming we are happy with our version
-        _targetVersion = getVersion();
+        String latestVersion = getVersion();
 
-        // if we are a versioned application, read in the contents of the version.txt file
-        // and/or check the latest config URL for a newer version
-        if (getVersion() != -1) {
-            long fileVersion = Long.parseLong(VersionUtil.readLocalVersion(_appdir));
-            if (fileVersion != -1) {
-                _targetVersion = fileVersion;
-            }
-
-            long _latestVersion = Long.parseLong(VersionUtil.readLatestVersion(_appdir, _appbase));
-            _targetVersion = Math.max(_targetVersion, _latestVersion);
+        // if we are a versioned application, check for latest version
+        if (VersionUtil.isValidVersion(getVersion())) {
+            latestVersion = VersionUtil.readLatestVersion(getAppdir(), getAppbase());
         }
 
-        // finally let the caller know if we need an update
-        return getVersion() != _targetVersion;
+        if (VersionUtil.compareVersions(latestVersion, getVersion()) > 0) {
+            clearValidationMarkers();
+        }
+
+        return latestVersion;
     }
 
     /**
@@ -1128,7 +1124,7 @@ public class Application
             }
 
             try {
-                if (_digest.validateResource(rsrc, mpobs)) {
+                if (DigestsUtil.validateResourceDigest(rsrc, digests, mpobs)) {
                     // unpack this resource if appropriate
                     if (noUnpack || !rsrc.shouldUnpack()) {
                         // finally note that this resource is kosher
@@ -1193,8 +1189,7 @@ public class Application
     /**
      * Clears all validation marker files.
      */
-    public void clearValidationMarkers ()
-    {
+    private void clearValidationMarkers () {
         clearValidationMarkers(getAllActiveResources().iterator());
     }
 
@@ -1202,7 +1197,7 @@ public class Application
      * Returns the version number for the application.  Should only be called after successful
      * return of verifyMetadata.
      */
-    public long getVersion () {
+    public String getVersion () {
         return _version;
     }
 
@@ -1210,16 +1205,6 @@ public class Application
         return _appbase;
     }
 
-
-
-    /**
-     * Creates a versioned application base URL for the specified version.
-     */
-    protected URL createVAppBase (long version)
-        throws MalformedURLException
-    {
-        return new URL(getAppbase().replace("%VERSION%", "" + version));
-    }
 
     /**
      * Clears all validation marker files for the resources in the supplied iterator.
@@ -1291,16 +1276,6 @@ public class Application
     }
 
     /**
-     * Downloads a copy of Digest.DIGEST_FILE and validates its signature.
-     * @throws IOException
-     */
-    protected void downloadDigestFile ()
-        throws IOException
-    {
-        downloadControlFile(Digest.DIGEST_FILE, true);
-    }
-
-    /**
      * Downloads a new copy of the specified control file, optionally validating its signature.
      * If the download is successful, moves it over the old file on the filesystem.
      *
@@ -1316,24 +1291,6 @@ public class Application
         throws IOException
     {
         File target = downloadFile(path);
-
-        if (validateSignature) {
-            if (_signers.isEmpty()) {
-                log.info("No signers, not verifying file", "path", path);
-
-            } else {
-                File signatureFile = downloadFile(path + Digest.SIGNATURE_SUFFIX);
-                try {
-                    if (!Digest.verify(target, signatureFile, _signers)) {
-                        // delete the temporary digest file as we know it is invalid
-                        target.delete();
-                        throw new IOException("m.corrupt_digest_signature_error");
-                    }
-                } finally {
-                    signatureFile.delete(); // delete the file regardless
-                }
-            }
-        }
 
         // now move the temporary file over the original
         File original = getLocalPath(path);
@@ -1517,20 +1474,7 @@ public class Application
         return cookie.toString();
     }
 
-    /**
-     * If appbase_domain property is set, replace the domain on the provided string.
-     */
-    protected String replaceDomain (String appbase)
-    {
-        String appbaseDomain = SysProps.appbaseDomain();
-        if (appbaseDomain != null) {
-            Matcher m = Pattern.compile("(http://[^/]+)(.*)").matcher(appbase);
-            appbase = m.replaceAll(appbaseDomain + "$2");
-        }
-        return appbase;
-    }
-
-   protected static int parseJavaVersion (String value, String errkey) throws IOException {
+    protected static int parseJavaVersion (String value, String errkey) throws IOException {
       try {
          return new RuntimeVersionParser().parse(value);
       } catch (Exception e) {
@@ -1553,13 +1497,12 @@ public class Application
         }
     }
 
-    protected File _appdir;
+    private File _appdir;
     protected String _appid;
     protected File _config;
-    protected Digest _digest;
+    private Digests digests;
 
-    private long _version = -1;
-    protected long _targetVersion = -1;
+    private String _version = VersionUtil.NO_VERSION;
     private String _appbase;
     protected URL _vappbase;
     protected String _class;

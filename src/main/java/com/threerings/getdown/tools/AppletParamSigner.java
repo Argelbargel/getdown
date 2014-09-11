@@ -5,14 +5,12 @@
 
 package com.threerings.getdown.tools;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.Signature;
+import com.threerings.getdown.util.SecurityUtil;
+import com.threerings.getdown.util.SignatureUtil;
 
-import com.threerings.getdown.data.Digest;
-import org.apache.commons.codec.binary.Base64;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.security.PrivateKey;
 
 /**
  * Produces a signed hash of the appbase, appname, and image path to ensure that signed copies of
@@ -38,14 +36,8 @@ public class AppletParamSigner
             String imgpath = args[6];
             String params = appbase + appname + imgpath;
 
-            KeyStore store = KeyStore.getInstance("JKS");
-            store.load(new BufferedInputStream(new FileInputStream(keystore)),
-                       storepass.toCharArray());
-            PrivateKey key = (PrivateKey)store.getKey(alias, keypass.toCharArray());
-            Signature sig = Signature.getInstance(Digest.SIGNATURE_ALGORITHM);
-            sig.initSign(key);
-            sig.update(params.getBytes());
-            String signed = new String(Base64.encodeBase64(sig.sign()));
+            PrivateKey key = SecurityUtil.loadPrivateKey(new File(keystore), storepass, keypass, alias);
+            String signed = SignatureUtil.calculateSignature(new ByteArrayInputStream(params.getBytes()), key);
             System.out.println("<param name=\"appbase\" value=\"" + appbase + "\" />");
             System.out.println("<param name=\"appname\" value=\"" + appname + "\" />");
             System.out.println("<param name=\"bgimage\" value=\"" + imgpath + "\" />");
