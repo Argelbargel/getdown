@@ -5,25 +5,27 @@
 
 package com.threerings.getdown.util;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.Reader;
+import com.samskivert.io.StreamUtil;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-
-import com.samskivert.io.StreamUtil;
 
 import static com.threerings.getdown.Log.log;
 
 /**
  * File related utilities.
  */
-public class FileUtil
-{
+public class FileUtil {
+    public static final String BACKUPFILE_SUFFIX = ".old";
+
+
+    public static File createTempFile(String prefix, String suffix, boolean deleteOnExit) throws IOException {
+        File tmpFile = File.createTempFile(prefix, suffix);
+        if (deleteOnExit) tmpFile.deleteOnExit();
+        return tmpFile;
+    }
+
     /**
      * Gets the specified source file to the specified destination file by hook or crook. Windows
      * has all sorts of problems which we work around in this method.
@@ -40,7 +42,7 @@ public class FileUtil
         // fall back to trying to rename the old file out of the way, rename the new file into
         // place and then delete the old file
         if (dest.exists()) {
-            File temp = new File(dest.getPath() + "_old");
+            File temp = new File(dest.getPath() + BACKUPFILE_SUFFIX);
             if (temp.exists()) {
                 if (!temp.delete()) {
                     log.warning("Failed to delete old intermediate file " + temp + ".");

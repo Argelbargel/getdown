@@ -5,18 +5,11 @@
 
 package com.threerings.getdown.util;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.samskivert.util.StringUtil;
+import com.threerings.getdown.data.SysProps;
+
+import java.io.*;
+import java.util.*;
 
 import static com.threerings.getdown.Log.log;
 
@@ -24,8 +17,45 @@ import static com.threerings.getdown.Log.log;
  * Parses a file containing key/value pairs and returns a {@link HashMap} with the values. Keys may
  * be repeated, in which case they will be made to reference an array of values.
  */
-public class ConfigUtil
-{
+public class ConfigUtil {
+    /** The name of our configuration file. */
+    public static final String CONFIG_FILE = "getdown.txt";
+
+    public static Map<String, Object> create(File appdir, boolean checkPlatform) {
+        File config = new File(appdir, CONFIG_FILE);
+        Map<String,Object> cdata = null;
+        try {
+            // if we have a configuration file, read the data from it
+            if (config.exists()) {
+                cdata = ConfigUtil.parseConfig(config, checkPlatform);
+            }
+            // otherwise, try reading data from our backup config file; thanks to funny windows
+            // bullshit, we have to do this backup file fiddling in case we got screwed while
+            // updating getdown.txt during normal operation
+            else if ((config = new File(appdir, CONFIG_FILE + "_old")).exists()) {
+                cdata = ConfigUtil.parseConfig(config, checkPlatform);
+            }
+        } catch (Exception e) {
+            log.warning("Failure reading config file", "file", config, e);
+        }
+
+        // if we failed to read our config file, check for an appbase specified via a system
+        // property; we can use that to bootstrap ourselves back into operation
+        if (cdata == null) {
+            String appbase = SysProps.appBase();
+            if (appbase == null) {
+                throw new RuntimeException("m.missing_appbase");
+            }
+
+            log.info("Attempting to obtain 'appbase' from system property", "appbase", appbase);
+            cdata = new HashMap<String,Object>();
+            cdata.put("appbase", appbase);
+        }
+
+        return (cdata != null) ? cdata : Collections.<String, Object>emptyMap();
+    }
+
+
     /**
      * Parses a configuration file containing key/value pairs. The file must be in the UTF-8
      * encoding.

@@ -5,17 +5,16 @@
 
 package com.threerings.getdown.net;
 
+import com.samskivert.io.StreamUtil;
+import com.threerings.getdown.data.Resource;
+import com.threerings.getdown.util.ConnectionUtil;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URLConnection;
 import java.util.List;
-
-import com.samskivert.io.StreamUtil;
-
-import com.threerings.getdown.data.Resource;
-import com.threerings.getdown.util.ConnectionUtil;
 
 import static com.threerings.getdown.Log.log;
 
@@ -78,7 +77,7 @@ public class HTTPDownloader extends Downloader
         long currentSize = 0L;
         try {
             in = conn.getInputStream();
-            out = new FileOutputStream(rsrc.getLocal());
+            out = new FileOutputStream(rsrc.getLocalFile());
             int read;
 
             // TODO: look to see if we have a download info file

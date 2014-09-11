@@ -5,19 +5,18 @@
 
 package com.threerings.getdown.data;
 
-import java.awt.Color;
-import java.awt.Rectangle;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.io.RandomAccessFile;
+import com.samskivert.io.StreamUtil;
+import com.samskivert.text.MessageUtil;
+import com.samskivert.util.ArrayUtil;
+import com.samskivert.util.RandomUtil;
+import com.samskivert.util.RunAnywhere;
+import com.samskivert.util.StringUtil;
+import com.threerings.getdown.launcher.RotatingBackgrounds;
+import com.threerings.getdown.util.*;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -28,45 +27,14 @@ import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.security.AllPermission;
 import java.security.CodeSource;
-import java.security.GeneralSecurityException;
 import java.security.PermissionCollection;
 import java.security.Permissions;
-import java.security.Signature;
 import java.security.cert.Certificate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map.Entry;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.swing.JApplet;
-
-import com.threerings.getdown.util.RuntimeVersionParser;
-import org.apache.commons.codec.binary.Base64;
-
-import com.samskivert.io.StreamUtil;
-import com.samskivert.text.MessageUtil;
-import com.samskivert.util.ArrayUtil;
-import com.samskivert.util.RandomUtil;
-import com.samskivert.util.RunAnywhere;
-import com.samskivert.util.StringUtil;
-
-import com.threerings.getdown.launcher.RotatingBackgrounds;
-import com.threerings.getdown.util.ConfigUtil;
-import com.threerings.getdown.util.ConnectionUtil;
-import com.threerings.getdown.util.FileUtil;
-import com.threerings.getdown.util.LaunchUtil;
-import com.threerings.getdown.util.MetaProgressObserver;
-import com.threerings.getdown.util.ProgressObserver;
-import com.threerings.getdown.util.VersionUtil;
 
 import static com.threerings.getdown.Log.log;
 
@@ -76,8 +44,6 @@ import static com.threerings.getdown.Log.log;
  */
 public class Application
 {
-    /** The name of our configuration file. */
-    public static final String CONFIG_FILE = "getdown.txt";
 
     /** The name of our target version file. */
     public static final String VERSION_FILE = "version.txt";
@@ -87,7 +53,7 @@ public class Application
     public static final String PROP_PASSTHROUGH_PREFIX = "app.";
 
 
-   /** Used to communicate information about the UI displayed when updating the application. */
+    /** Used to communicate information about the UI displayed when updating the application. */
     public static class UpdateInterface
     {
         /**
@@ -247,7 +213,7 @@ public class Application
         _appdir = appdir;
         _appid = appid;
         _signers = (signers == null) ? Collections.<Certificate>emptyList() : signers;
-        _config = getLocalPath(CONFIG_FILE);
+        _config = getLocalPath(ConfigUtil.CONFIG_FILE);
         _extraJvmArgs = (jvmargs == null) ? ArrayUtil.EMPTY_STRING : jvmargs;
         _extraAppArgs = (appargs == null) ? ArrayUtil.EMPTY_STRING : appargs;
     }
@@ -258,7 +224,7 @@ public class Application
     public Resource getConfigResource ()
     {
         try {
-            return createResource(CONFIG_FILE, false);
+            return createResource(ConfigUtil.CONFIG_FILE, false);
         } catch (Exception e) {
             throw new RuntimeException("Invalid appbase '" + _vappbase + "'.", e);
         }
@@ -366,20 +332,20 @@ public class Application
      */
     public Resource getPatchResource (String auxgroup)
     {
-        if (_targetVersion <= _version) {
+        if (_targetVersion <= getVersion()) {
             log.warning("Requested patch resource for up-to-date or non-versioned application",
-                "cvers", _version, "tvers", _targetVersion);
+                "cvers", getVersion(), "tvers", _targetVersion);
             return null;
         }
 
         String infix = (auxgroup == null) ? "" : ("-" + auxgroup);
-        String pfile = "patch" + infix + _version + ".dat";
+        String pfile = "patch" + infix + getVersion() + ".dat";
         try {
             URL remote = new URL(createVAppBase(_targetVersion), pfile);
             return new Resource(pfile, remote, getLocalPath(pfile), false);
         } catch (Exception e) {
             log.warning("Failed to create patch resource path",
-                "pfile", pfile, "appbase", _appbase, "tvers", _targetVersion, "error", e);
+                "pfile", pfile, "appbase", getAppbase(), "tvers", _targetVersion, "error", e);
             return null;
         }
     }
@@ -399,7 +365,7 @@ public class Application
             URL remote = new URL(createVAppBase(_targetVersion), _javaLocation);
             return new Resource(vmfile, remote, getLocalPath(vmfile), true);
         } catch (Exception e) {
-            log.warning("Failed to create VM resource", "vmfile", vmfile, "appbase", _appbase,
+            log.warning("Failed to create VM resource", "vmfile", vmfile, "appbase", getAppbase(),
                 "tvers", _targetVersion, "javaloc", _javaLocation, "error", e);
             return null;
         }
@@ -417,7 +383,7 @@ public class Application
             return new Resource(file, remote, getLocalPath(file), false);
         } catch (Exception e) {
             log.warning("Failed to create full resource path",
-                "file", file, "appbase", _appbase, "tvers", _targetVersion, "error", e);
+                "file", file, "appbase", getAppbase(), "tvers", _targetVersion, "error", e);
             return null;
         }
     }
@@ -483,72 +449,19 @@ public class Application
     public UpdateInterface init (boolean checkPlatform)
         throws IOException
     {
-        Map<String,Object> cdata = null;
-        File config = _config;
-        try {
-            // if we have a configuration file, read the data from it
-            if (config.exists()) {
-                cdata = ConfigUtil.parseConfig(_config, checkPlatform);
-            }
-            // otherwise, try reading data from our backup config file; thanks to funny windows
-            // bullshit, we have to do this backup file fiddling in case we got screwed while
-            // updating getdown.txt during normal operation
-            else if ((config = getLocalPath(CONFIG_FILE + "_old")).exists()) {
-                cdata = ConfigUtil.parseConfig(config, checkPlatform);
-            }
-            // otherwise, issue a warning that we found no getdown file
-            else {
-                log.info("Found no getdown.txt file", "appdir", _appdir);
-            }
-        } catch (Exception e) {
-            log.warning("Failure reading config file", "file", config, e);
-        }
+        Map<String,Object> cdata = ConfigUtil.create(_appdir, checkPlatform);
 
-        // if we failed to read our config file, check for an appbase specified via a system
-        // property; we can use that to bootstrap ourselves back into operation
-        if (cdata == null) {
-            String appbase = SysProps.appBase();
-            log.info("Attempting to obtain 'appbase' from system property", "appbase", appbase);
-            cdata = new HashMap<String,Object>();
-            cdata.put("appbase", appbase);
-        }
 
         // first determine our application base, this way if anything goes wrong later in the
         // process, our caller can use the appbase to download a new configuration file
-        _appbase = (String)cdata.get("appbase");
-        if (_appbase == null) {
-            throw new RuntimeException("m.missing_appbase");
-        }
-        // make sure there's a trailing slash
-        if (!_appbase.endsWith("/")) {
-            _appbase = _appbase + "/";
-        }
-
-        // check if we're overriding the domain in the appbase
-        _appbase = replaceDomain(_appbase);
+        _appbase = AppbaseUtil.createAppbase((String) cdata.get("appbase"));
 
         // extract our version information
-        String vstr = (String)cdata.get("version");
-        if (vstr != null) _version = parseLong(vstr, "m.invalid_version");
+        _version = Long.parseLong(VersionUtil.readLatestVersion(_appdir, _appbase));
 
         // if we are a versioned deployment, create a versioned appbase
-        try {
-            _vappbase = (_version < 0) ? new URL(_appbase) : createVAppBase(_version);
-        } catch (MalformedURLException mue) {
-            String err = MessageUtil.tcompose("m.invalid_appbase", _appbase);
-            throw (IOException) new IOException(err).initCause(mue);
-        }
+        _vappbase = VersionUtil.createVersionedUrl(_appbase, String.valueOf(_version));
 
-        // check for a latest config URL
-        String latest = (String)cdata.get("latest");
-        if (latest != null) {
-            latest = replaceDomain(latest);
-            try {
-                _latest = new URL(latest);
-            } catch (MalformedURLException mue) {
-                log.warning("Invalid URL for latest attribute.", mue);
-            }
-        }
 
         String prefix = StringUtil.isBlank(_appid) ? "" : (_appid + ".");
 
@@ -559,6 +472,7 @@ public class Application
         }
 
         // check to see if we require a particular JVM version and have a supplied JVM
+        String vstr;
         vstr = (String)cdata.get("java_version");
         if (vstr != null) _javaMinVersion = parseJavaVersion(vstr, "m.invalid_java_version");
         // we support java_min_version as an alias of java_version; it better expresses the check
@@ -732,6 +646,11 @@ public class Application
         return ui;
     }
 
+    private long extractVersion(Map<String, Object> cdata) throws IOException {
+        String vstr = (String)cdata.get("version");
+        return parseLong((vstr != null) ? vstr : VersionUtil.NO_VERSION, "m.invalid_version");
+    }
+
     /**
      * Adds strings of the form pair0=pair1 to collector for each pair parsed out of pairLocation.
      */
@@ -852,13 +771,8 @@ public class Application
     public void updateMetadata ()
         throws IOException
     {
-        try {
-            // update our versioned application base with the target version
-            _vappbase = createVAppBase(_targetVersion);
-        } catch (MalformedURLException mue) {
-            String err = MessageUtil.tcompose("m.invalid_appbase", _appbase);
-            throw (IOException) new IOException(err).initCause(mue);
-        }
+        // update our versioned application base with the target version
+        _vappbase = VersionUtil.createVersionedUrl(_appbase, String.valueOf(_targetVersion));
 
         try {
             // now re-download our control files; we download the digest first so that if it fails,
@@ -899,7 +813,7 @@ public class Application
             if (cpbuf.length() > 0) {
                 cpbuf.append(File.pathSeparator);
             }
-            cpbuf.append(rsrc.getLocal().getAbsolutePath());
+            cpbuf.append(rsrc.getLocalFile().getAbsolutePath());
         }
 
         ArrayList<String> args = new ArrayList<String>();
@@ -1004,7 +918,7 @@ public class Application
         ArrayList<URL> jars = new ArrayList<URL>();
         for (Resource rsrc : getActiveCodeResources()) {
             try {
-                jars.add(new URL("file", "", rsrc.getLocal().getAbsolutePath()));
+                jars.add(new URL("file", "", rsrc.getLocalFile().getAbsolutePath()));
             } catch (Exception e) {
                 e.printStackTrace(System.err);
             }
@@ -1070,7 +984,7 @@ public class Application
     protected String processArg (String arg)
     {
         arg = arg.replace("%APPDIR%", _appdir.getAbsolutePath());
-        arg = arg.replace("%VERSION%", String.valueOf(_version));
+        arg = arg.replace("%VERSION%", String.valueOf(getVersion()));
         return arg;
     }
 
@@ -1090,7 +1004,7 @@ public class Application
         throws IOException
     {
         log.info("Verifying application: " + _vappbase);
-        log.info("Version: " + _version);
+        log.info("Version: " + getVersion());
         log.info("Class: " + _class);
 //         log.info("Code: " +
 //                  StringUtil.toString(getCodeResources().iterator()));
@@ -1108,7 +1022,7 @@ public class Application
 
         // if we have no version, then we are running in unversioned mode so we need to download
         // our digest.txt file on every invocation
-        if (_version == -1) {
+        if (getVersion() == -1) {
             // make a note of the old meta-digest, if this changes we need to revalidate all of our
             // resources as one or more of them have also changed
             String olddig = (_digest == null) ? "" : _digest.getMetaDigest();
@@ -1151,51 +1065,28 @@ public class Application
             if (_digest.validateResource(crsrc, null)) {
                 init(true);
             } else {
-                log.warning(CONFIG_FILE + " failed to validate even after redownloading. " +
+                log.warning(ConfigUtil.CONFIG_FILE + " failed to validate even after redownloading. " +
                             "Blindly forging onward.");
             }
         }
 
         // start by assuming we are happy with our version
-        _targetVersion = _version;
+        _targetVersion = getVersion();
 
         // if we are a versioned application, read in the contents of the version.txt file
         // and/or check the latest config URL for a newer version
-        if (_version != -1) {
-            File vfile = getLocalPath(VERSION_FILE);
-            long fileVersion = VersionUtil.readVersion(vfile);
+        if (getVersion() != -1) {
+            long fileVersion = Long.parseLong(VersionUtil.readLocalVersion(_appdir));
             if (fileVersion != -1) {
                 _targetVersion = fileVersion;
             }
 
-            if (_latest != null) {
-                InputStream in = null;
-                PrintStream out = null;
-                try {
-                    in = ConnectionUtil.open(_latest).getInputStream();
-                    BufferedReader bin = new BufferedReader(new InputStreamReader(in));
-                    for (String[] pair : ConfigUtil.parsePairs(bin, false)) {
-                        if (pair[0].equals("version")) {
-                            _targetVersion = Math.max(Long.parseLong(pair[1]), _targetVersion);
-                            if (fileVersion != -1 && _targetVersion > fileVersion) {
-                                // replace the file with the newest version
-                                out = new PrintStream(new FileOutputStream(vfile));
-                                out.println(_targetVersion);
-                            }
-                            break;
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warning("Unable to retrieve version from latest config file.", e);
-                } finally {
-                    StreamUtil.close(in);
-                    StreamUtil.close(out);
-                }
-            }
+            long _latestVersion = Long.parseLong(VersionUtil.readLatestVersion(_appdir, _appbase));
+            _targetVersion = Math.max(_targetVersion, _latestVersion);
         }
 
         // finally let the caller know if we need an update
-        return _version != _targetVersion;
+        return getVersion() != _targetVersion;
     }
 
     /**
@@ -1217,7 +1108,7 @@ public class Application
         // total up the file size of the resources to validate
         long totalSize = 0L;
         for (Resource rsrc : rsrcs) {
-            totalSize += rsrc.getLocal().length();
+            totalSize += rsrc.getLocalFile().length();
         }
 
         MetaProgressObserver mpobs = new MetaProgressObserver(obs, totalSize);
@@ -1226,7 +1117,7 @@ public class Application
             if (Thread.interrupted()) {
                 throw new InterruptedException("m.applet_stopped");
             }
-            mpobs.startElement(rsrc.getLocal().length());
+            mpobs.startElement(rsrc.getLocalFile().length());
 
             if (rsrc.isMarkedValid()) {
                 if (alreadyValid != null) {
@@ -1280,7 +1171,7 @@ public class Application
         for (Iterator<Resource> it = rsrcs.iterator(); it.hasNext(); ) {
             Resource rsrc = it.next();
             if (rsrc.shouldUnpack() && !unpacked.contains(rsrc)) {
-                totalSize += rsrc.getLocal().length();
+                totalSize += rsrc.getLocalFile().length();
             } else {
                 it.remove();
             }
@@ -1291,7 +1182,7 @@ public class Application
             if (Thread.interrupted()) {
                 throw new InterruptedException("m.applet_stopped");
             }
-            mpobs.startElement(rsrc.getLocal().length());
+            mpobs.startElement(rsrc.getLocalFile().length());
             if (!rsrc.unpack()) {
                 log.info("Failure unpacking resource", "rsrc", rsrc);
             }
@@ -1311,10 +1202,15 @@ public class Application
      * Returns the version number for the application.  Should only be called after successful
      * return of verifyMetadata.
      */
-    public long getVersion ()
-    {
+    public long getVersion () {
         return _version;
     }
+
+    public String getAppbase() {
+        return _appbase;
+    }
+
+
 
     /**
      * Creates a versioned application base URL for the specified version.
@@ -1322,7 +1218,7 @@ public class Application
     protected URL createVAppBase (long version)
         throws MalformedURLException
     {
-        return new URL(_appbase.replace("%VERSION%", "" + version));
+        return new URL(getAppbase().replace("%VERSION%", "" + version));
     }
 
     /**
@@ -1341,7 +1237,7 @@ public class Application
     protected void downloadConfigFile ()
         throws IOException
     {
-        downloadControlFile(CONFIG_FILE, false);
+        downloadControlFile(ConfigUtil.CONFIG_FILE, false);
     }
 
     /**
@@ -1662,11 +1558,10 @@ public class Application
     protected File _config;
     protected Digest _digest;
 
-    protected long _version = -1;
+    private long _version = -1;
     protected long _targetVersion = -1;
-    protected String _appbase;
+    private String _appbase;
     protected URL _vappbase;
-    protected URL _latest;
     protected String _class;
     protected String _name;
     protected String _dockIconPath;

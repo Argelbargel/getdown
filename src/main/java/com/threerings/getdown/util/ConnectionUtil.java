@@ -5,23 +5,33 @@
 
 package com.threerings.getdown.util;
 
-import java.io.IOException;
+import com.samskivert.io.StreamUtil;
+import com.threerings.getdown.data.SysProps;
+import org.apache.commons.codec.binary.Base64;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLDecoder;
-
-import org.apache.commons.codec.binary.Base64;
 
 public class ConnectionUtil
 {
     /**
      * Opens a connection to a URL, setting the authentication header if user info is present.
      */
-    public static URLConnection open (URL url)
-        throws IOException
-    {
+    public static URLConnection open(URL url) throws IOException {
         URLConnection conn = url.openConnection();
+        // we have to tell Java not to use caches, otherwise it will cache any request for
+        // same URL for the lifetime of this JVM (based on the URL string, not the URL object);
+        // Turning off caches is not a performance concern, because when Getdown asks
+        // to download a file, it expects it to come over the wire, not from a cache
+        conn.setUseCaches(false);
+
+        int timeout = SysProps.connectTimeout();
+        if (timeout > 0) {
+            conn.setConnectTimeout(timeout * 1000);
+        }
 
         // If URL has a username:password@ before hostname, use HTTP basic auth
         String userInfo = url.getUserInfo();
@@ -35,6 +45,20 @@ public class ConnectionUtil
         }
 
         return conn;
+    }
+
+    public static File download(URL url, File target) throws IOException {
+        InputStream in = null;
+        OutputStream out = null;
+        try {
+            in = open(url).getInputStream();
+            out = new FileOutputStream(target);
+            StreamUtil.copy(in, out);
+            return target;
+        } finally {
+            StreamUtil.close(in);
+            StreamUtil.close(out);
+        }
     }
 
     /**

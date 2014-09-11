@@ -5,72 +5,36 @@
 
 package com.threerings.getdown.launcher;
 
-import java.awt.BorderLayout;
-import java.awt.Container;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.EventQueue;
-import java.awt.Image;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.image.BufferedImage;
-
-import javax.imageio.ImageIO;
-import javax.swing.AbstractAction;
-import javax.swing.ImageIcon;
-import javax.swing.JApplet;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLayeredPane;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-
-import java.security.cert.Certificate;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.ResourceBundle;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import ca.beq.util.win32.registry.RegistryKey;
 import ca.beq.util.win32.registry.RegistryValue;
 import ca.beq.util.win32.registry.RootKey;
-
 import com.samskivert.swing.util.SwingUtil;
 import com.samskivert.text.MessageUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
-
-import com.threerings.getdown.data.Application.UpdateInterface.Step;
 import com.threerings.getdown.data.Application;
+import com.threerings.getdown.data.Application.UpdateInterface.Step;
 import com.threerings.getdown.data.Resource;
 import com.threerings.getdown.data.SysProps;
 import com.threerings.getdown.net.Downloader;
 import com.threerings.getdown.net.HTTPDownloader;
 import com.threerings.getdown.tools.Patcher;
-import com.threerings.getdown.util.ConfigUtil;
-import com.threerings.getdown.util.ConnectionUtil;
-import com.threerings.getdown.util.LaunchUtil;
-import com.threerings.getdown.util.MetaProgressObserver;
-import com.threerings.getdown.util.ProgressObserver;
-import com.threerings.getdown.util.VersionUtil;
+import com.threerings.getdown.util.*;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.cert.Certificate;
+import java.util.*;
+import java.util.List;
+import java.util.Timer;
 
 import static com.threerings.getdown.Log.log;
 
@@ -372,7 +336,7 @@ public abstract class GetdownController extends Thread
             }
 
             // Update the config modtime so a sleeping getdown will notice the change.
-            File config = _app.getLocalPath(Application.CONFIG_FILE);
+            File config = _app.getLocalPath(ConfigUtil.CONFIG_FILE);
             if (!config.setLastModified(System.currentTimeMillis())) {
                 log.warning("Unable to set modtime on config file, will be unable to check for " +
                             "another instance of getdown running while this one waits.");
@@ -445,7 +409,7 @@ public abstract class GetdownController extends Thread
                         if (!ufile.exists()) {
                             ufile.createNewFile();
                         } else {
-                            version = VersionUtil.readVersion(ufile);
+                            version = Long.parseLong(VersionUtil.readLocalVersion(ufile));
                         }
 
                         if (version < aversion) {
@@ -455,7 +419,7 @@ public abstract class GetdownController extends Thread
                             updateStatus("m.validating");
                             _app.unpackResources(_progobs, unpacked);
                             try {
-                                VersionUtil.writeVersion(ufile, aversion);
+                                VersionUtil.writeLocalVersion(ufile, String.valueOf(aversion));
                             } catch (IOException ioe) {
                                 log.warning("Failed to update unpacked version", ioe);
                             }
@@ -663,15 +627,15 @@ public abstract class GetdownController extends Thread
                 mprog.startElement(1);
                 try {
                     Patcher patcher = new Patcher();
-                    patcher.patch(prsrc.getLocal().getParentFile(), prsrc.getLocal(), mprog);
+                    patcher.patch(prsrc.getLocalFile().getParentFile(), prsrc.getLocalFile(), mprog);
                 } catch (Exception e) {
                     log.warning("Failed to apply patch", "prsrc", prsrc, e);
                 }
 
                 // clean up the patch file
-                if (!prsrc.getLocal().delete()) {
+                if (!prsrc.getLocalFile().delete()) {
                     log.warning("Failed to delete '" + prsrc + "'.");
-                    prsrc.getLocal().deleteOnExit();
+                    prsrc.getLocalFile().deleteOnExit();
                 }
             }
         }

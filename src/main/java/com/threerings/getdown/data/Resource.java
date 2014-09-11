@@ -5,45 +5,50 @@
 
 package com.threerings.getdown.data;
 
+import com.samskivert.io.StreamUtil;
+import com.samskivert.util.FileUtil;
+import com.samskivert.util.StringUtil;
+import com.threerings.getdown.util.ProgressObserver;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
 import java.net.URL;
 import java.security.MessageDigest;
-
-import java.util.Comparator;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
-
-import com.samskivert.io.StreamUtil;
-import com.samskivert.util.FileUtil;
-import com.samskivert.util.StringUtil;
-
-import com.threerings.getdown.util.ProgressObserver;
 
 import static com.threerings.getdown.Log.log;
 
 /**
  * Models a single file resource used by an {@link Application}.
  */
-public class Resource
-{
-   private static final Pattern VALID_ARCHIVE_FILE_PATTERN = Pattern.compile("^.*" + Pattern.quote(".") + "(jar|zip)$");
+public class Resource {
+    private static final Pattern VALID_ARCHIVE_FILE_PATTERN = Pattern.compile("^.*" + Pattern.quote(".") + "(jar|zip)$");
+
+    private final String _path;
+    private final URL _remote;
+    private final File _local, _marker;
+    private final ResourceType _type;
+
     /**
      * Creates a resource with the supplied remote URL and local path.
      */
-    public Resource (String path, URL remote, File local, boolean unpack)
-    {
+    public Resource(String path, URL remote, File local, boolean unpack) {
+        this((unpack) ? ResourceType.RESOURCE_ARCHIVE : ResourceType.RESOURCE_FILE, path, remote, local);
+    }
+
+    public Resource(ResourceType type, String path, URL remote, File local) {
+        _type = type;
         _path = path;
         _remote = remote;
         _local = local;
         _marker = new File(_local.getPath() + "v");
-        _unpack = unpack;
     }
 
     /**
@@ -54,12 +59,20 @@ public class Resource
         return _path;
     }
 
+    public ResourceType getType() {
+        return _type;
+    }
+
     /**
      * Returns the local location of this resource.
      */
-    public File getLocal ()
+    public File getLocalFile()
     {
         return _local;
+    }
+
+    public boolean isArchive() {
+        return _type.shouldUnpack() && isValidArchive(getLocalFile());
     }
 
     /**
@@ -76,7 +89,7 @@ public class Resource
      */
     public boolean shouldUnpack ()
     {
-        return _unpack;
+        return _type.shouldUnpack();
     }
 
     /**
@@ -278,10 +291,6 @@ public class Resource
         }
     }
 
-    protected String _path;
-    protected URL _remote;
-    protected File _local, _marker;
-    protected boolean _unpack;
 
     /** Used to sort the entries in a jar file. */
     protected static final Comparator<JarEntry> ENTRY_COMP =

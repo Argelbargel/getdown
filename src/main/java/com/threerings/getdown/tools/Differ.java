@@ -5,27 +5,19 @@
 
 package com.threerings.getdown.tools;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import com.samskivert.io.StreamUtil;
+import com.threerings.getdown.data.Application;
+import com.threerings.getdown.data.Digest;
+import com.threerings.getdown.data.Resource;
 
+import java.io.*;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
-
-import java.security.MessageDigest;
-
-import com.samskivert.io.StreamUtil;
-
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Digest;
-import com.threerings.getdown.data.Resource;
 
 /**
  * Generates patch files between two particular revisions of an
@@ -133,8 +125,8 @@ public class Differ
                         // jardiff jar file, ZipOutputStream will choke and
                         // we'll be hosed; so we recreate the jar files in
                         // their entirety before running jardiff on 'em
-                        File otemp = rebuildJar(orsrc.getLocal());
-                        File temp = rebuildJar(rsrc.getLocal());
+                        File otemp = rebuildJar(orsrc.getLocalFile());
+                        File temp = rebuildJar(rsrc.getLocalFile());
                         jout.putNextEntry(new ZipEntry(rsrc.getPath() + Patcher.PATCH));
                         jarDiff(otemp, temp, jout);
                         otemp.delete();
@@ -147,7 +139,7 @@ public class Differ
                     System.out.println("Addition: " + rsrc.getPath());
                 }
                 jout.putNextEntry(new ZipEntry(rsrc.getPath() + Patcher.CREATE));
-                pipe(rsrc.getLocal(), jout);
+                pipe(rsrc.getLocalFile(), jout);
             }
 
             // now any file remaining in orsrcs needs to be removed

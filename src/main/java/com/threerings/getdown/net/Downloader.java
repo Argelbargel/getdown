@@ -5,14 +5,13 @@
 
 package com.threerings.getdown.net;
 
+import com.threerings.getdown.data.Resource;
+
 import java.io.File;
 import java.io.IOException;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.threerings.getdown.data.Resource;
 
 import static com.threerings.getdown.Log.log;
 
@@ -153,7 +152,7 @@ public abstract class Downloader extends Thread
         throws IOException
     {
         // make sure the resource's target directory exists
-        File parent = new File(rsrc.getLocal().getParent());
+        File parent = new File(rsrc.getLocalFile().getParent());
         if (!parent.exists()) {
             if (!parent.mkdirs()) {
                 log.warning("Failed to create target directory for resource '" + rsrc + "'. " +
