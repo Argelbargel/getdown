@@ -337,8 +337,7 @@ public class Application
         String infix = (auxgroup == null) ? "" : ("-" + auxgroup);
         String pfile = "patch" + infix + getVersion() + ".dat";
         try {
-            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), version), pfile);
-            return new Resource(pfile, remote, getLocalPath(pfile), false);
+            return Resource.create(getAppdir(), VersionUtil.createVersionedUrl(getAppbase(), getVersion()), pfile, false);
         } catch (Exception e) {
             log.warning("Failed to create patch resource path",
                 "pfile", pfile, "appbase", getAppbase(), "tvers", version, "error", e);
@@ -358,8 +357,7 @@ public class Application
 
         String vmfile = LaunchUtil.LOCAL_JAVA_DIR + ".jar";
         try {
-            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), getVersion()), _javaLocation);
-            return new Resource(vmfile, remote, getLocalPath(vmfile), true);
+            return Resource.create(getAppdir(), VersionUtil.createVersionedUrl(getAppbase(), getVersion()), vmfile, true);
         } catch (Exception e) {
             log.warning("Failed to create VM resource", "vmfile", vmfile, "appbase", getAppbase(),
                 "tvers", getVersion(), "javaloc", _javaLocation, "error", e);
@@ -373,13 +371,11 @@ public class Application
      */
     public Resource getFullResource (String version)
     {
-        String file = "full";
         try {
-            URL remote = new URL(VersionUtil.createVersionedUrl(getAppbase(), version), file);
-            return new Resource(file, remote, getLocalPath(file), false);
+            return Resource.create(getAppdir(), VersionUtil.createVersionedUrl(getAppbase(), getVersion()), "full", false);
         } catch (Exception e) {
             log.warning("Failed to create full resource path",
-                "file", file, "appbase", getAppbase(), "tvers", version, "error", e);
+                "file", "full", "appbase", getAppbase(), "tvers", version, "error", e);
             return null;
         }
     }
@@ -672,16 +668,6 @@ public class Application
                 log.warning("Failed to parse '" + pairFile + "': " + t);
             }
         }
-    }
-
-    /**
-     * Returns a URL from which the specified path can be fetched. Our application base URL is
-     * properly versioned and combined with the supplied path.
-     */
-    public URL getRemoteURL (String path)
-        throws MalformedURLException
-    {
-        return new URL(_vappbase, path);
     }
 
     /**
@@ -1006,15 +992,9 @@ public class Application
      */
     public String verifyMetadata (StatusDisplay status) throws IOException
     {
-        log.info("Verifying application: " + _vappbase);
+        log.info("Verifying application from: " + _vappbase);
         log.info("Version: " + getVersion());
         log.info("Class: " + _class);
-//         log.info("Code: " +
-//                  StringUtil.toString(getCodeResources().iterator()));
-//         log.info("Resources: " +
-//                  StringUtil.toString(getActiveResources().iterator()));
-//         log.info("JVM Args: " + StringUtil.toString(_jvmargs.iterator()));
-//         log.info("App Args: " + StringUtil.toString(_appargs.iterator()));
 
         // this will read in the contents of the digest file and validate itself
         try {
@@ -1310,7 +1290,7 @@ public class Application
 
         URL targetURL = null;
         try {
-            targetURL = getRemoteURL(path);
+            targetURL = new URL(VersionUtil.createVersionedUrl(getAppbase(), getVersion()), path);
         } catch (Exception e) {
             log.warning("Requested to download invalid control file",
                 "appbase", _vappbase, "path", path, "error", e);
@@ -1350,7 +1330,7 @@ public class Application
     protected Resource createResource (String path, boolean unpack)
         throws MalformedURLException
     {
-        return new Resource(path, getRemoteURL(path), getLocalPath(path), unpack);
+        return Resource.create(getAppdir(), VersionUtil.createVersionedUrl(getAppbase(), getVersion()), path, unpack);
     }
 
     /** Used to parse resources with the specified name. */
