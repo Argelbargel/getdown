@@ -69,24 +69,11 @@ public final class VersionUtil {
      * @return a URL to the versioned appbase or an unversioned appbase if the given version is invalid
      */
     public static URL createVersionedUrl(URL base, String version)  {
-        return createVersionedUrl(base.toString(), version);
-    }
-
-    /**
-     * creates versioned url for the given appbase
-     *
-     * @param base the application-base
-     * @param version the version
-     * @return a URL to the versioned appbase or an unversioned appbase if the given version is invalid
-     * @deprecated {@link com.threerings.getdown.data.Application} or {@link com.threerings.getdown.data.Configuration}
-     *             should convert the appbase-String into an URL (and report invalid appbases), thus all methods
-     *             accepting the appbase as a String will be removed from the public API
-     */
-    public static URL createVersionedUrl(String base, String version)  {
+        String base1 = base.toString();
         try {
-            return new URL(base.replaceAll(VERSION_URL_PLACEHOLDER, (isValidVersion(version) ? version : "")));
+            return new URL(base1.replaceAll(VERSION_URL_PLACEHOLDER, (isValidVersion(version) ? version : "")));
         } catch (MalformedURLException e) {
-            throw new RuntimeException("error creating versioned url of base-url " + base + ": " + e.getMessage(), e);
+            throw new RuntimeException("error creating versioned url of base-url " + base1 + ": " + e.getMessage(), e);
         }
     }
 

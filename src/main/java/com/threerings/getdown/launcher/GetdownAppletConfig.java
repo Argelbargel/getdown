@@ -5,8 +5,13 @@
 
 package com.threerings.getdown.launcher;
 
-import java.awt.Color;
-import java.awt.Rectangle;
+import com.samskivert.util.RunAnywhere;
+import com.samskivert.util.StringUtil;
+import com.threerings.getdown.data.Configuration;
+import com.threerings.getdown.util.ConfigUtil;
+
+import javax.swing.*;
+import java.awt.*;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -17,13 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import javax.swing.JApplet;
-
-import com.samskivert.util.RunAnywhere;
-import com.samskivert.util.StringUtil;
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.util.ConfigUtil;
 
 import static com.threerings.getdown.Log.log;
 
@@ -183,8 +181,8 @@ public class GetdownAppletConfig
         // This allows us to configure the status panel from applet parameters in case something
         // goes horribly wrong before we get a chance to read getdown.txt (like when the user
         // rejects write permission for the applet)
-        statusBounds = Application.parseRect("ui.status", getParameter("ui.status"));
-        statusColor = Application.parseColor(getParameter("ui.status_text"));
+        statusBounds = Configuration.parseRect("ui.status", getParameter("ui.status"));
+        statusColor = Configuration.parseColor(getParameter("ui.status_text"));
     }
 
     /**

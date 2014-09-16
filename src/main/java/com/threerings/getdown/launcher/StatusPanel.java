@@ -5,31 +5,22 @@
 
 package com.threerings.getdown.launcher;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.Rectangle;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.image.ImageObserver;
-import java.text.MessageFormat;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
-
-import javax.swing.JComponent;
-import javax.swing.Timer;
-
 import com.samskivert.swing.Label;
 import com.samskivert.swing.LabelStyleConstants;
 import com.samskivert.swing.util.SwingUtil;
 import com.samskivert.text.MessageUtil;
 import com.samskivert.util.StringUtil;
 import com.samskivert.util.Throttle;
+import com.threerings.getdown.data.UpdateInterface;
 
-import com.threerings.getdown.data.Application.UpdateInterface;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.ImageObserver;
+import java.text.MessageFormat;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 import static com.threerings.getdown.Log.log;
 

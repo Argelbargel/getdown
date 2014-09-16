@@ -5,11 +5,17 @@
 
 package com.threerings.getdown.util;
 
+import com.samskivert.text.MessageUtil;
 import com.samskivert.util.StringUtil;
+import com.threerings.getdown.data.Configuration;
 import com.threerings.getdown.data.SysProps;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.threerings.getdown.Log.log;
 
@@ -21,22 +27,27 @@ public class ConfigUtil {
     /** The name of our configuration file. */
     public static final String CONFIG_FILE = "getdown.txt";
 
-    public static Map<String, Object> create(File appdir, boolean checkPlatform) {
-        File config = new File(appdir, CONFIG_FILE);
+    public static Configuration downloadConfigFile(File appdir, URL appbase) throws IOException {
+        ConnectionUtil.download(new File(appdir, CONFIG_FILE), new URL(appbase, CONFIG_FILE));
+        return readConfigFile(appdir, false);
+    }
+
+    public static Configuration readConfigFile(File appdir, boolean checkPlatform) throws IOException {
+        File configFile = new File(appdir, CONFIG_FILE);
         Map<String,Object> cdata = null;
         try {
             // if we have a configuration file, read the data from it
-            if (config.exists()) {
-                cdata = ConfigUtil.parseConfig(config, checkPlatform);
+            if (configFile.exists()) {
+                cdata = ConfigUtil.parseConfig(configFile, checkPlatform);
             }
             // otherwise, try reading data from our backup config file; thanks to funny windows
             // bullshit, we have to do this backup file fiddling in case we got screwed while
             // updating getdown.txt during normal operation
-            else if ((config = new File(appdir, CONFIG_FILE + "_old")).exists()) {
-                cdata = ConfigUtil.parseConfig(config, checkPlatform);
+            else if ((configFile = new File(appdir, CONFIG_FILE + "_old")).exists()) {
+                cdata = ConfigUtil.parseConfig(configFile, checkPlatform);
             }
         } catch (Exception e) {
-            log.warning("Failure reading config file", "file", config, e);
+            log.warning("Failure reading config file", "file", configFile, e);
         }
 
         // if we failed to read our config file, check for an appbase specified via a system
@@ -52,7 +63,31 @@ public class ConfigUtil {
             cdata.put("appbase", appbase);
         }
 
-        return (cdata != null) ? cdata : Collections.<String, Object>emptyMap();
+        return createConfiguration(appdir, (cdata != null) ? cdata : Collections.<String, Object>emptyMap());
+    }
+
+    private static Configuration createConfiguration(File appdir, Map<String, Object> data) throws MalformedURLException {
+        return new Configuration(appdir, createAppbase((String) data.get("appbase")), data);
+    }
+
+    private static URL createAppbase(String url) throws MalformedURLException {
+        // check if we're overriding the domain in the appbase
+        String appbaseDomain = SysProps.appbaseDomain();
+        if (appbaseDomain != null) {
+            Matcher m = Pattern.compile("(http://[^/]+)(.*)").matcher(url);
+            url = m.replaceAll(appbaseDomain + "$2");
+        }
+
+        // make sure there's a trailing slash
+        if (!url.endsWith("/")) {
+            url = url + "/";
+        }
+
+        try {
+            return new URL(url);
+        } catch (MalformedURLException mue) {
+            throw new RuntimeException(MessageUtil.tcompose("m.invalid_appbase", url), mue);
+        }
     }
 
 
@@ -117,20 +152,6 @@ public class ConfigUtil {
         }
 
         return data;
-    }
-
-    /**
-     * Massages a single string into an array and leaves existing array values as is. Simplifies
-     * access to parameters that are expected to be arrays.
-     */
-    public static String[] getMultiValue (Map<String, Object> data, String name)
-    {
-        Object value = data.get(name);
-        if (value instanceof String) {
-            return new String[] { (String)value };
-        } else {
-            return (String[])value;
-        }
     }
 
     /** A helper function for {@link #parsePairs(Reader,boolean}. */

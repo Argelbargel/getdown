@@ -12,10 +12,7 @@ import com.samskivert.swing.util.SwingUtil;
 import com.samskivert.text.MessageUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Application.UpdateInterface.Step;
-import com.threerings.getdown.data.Resource;
-import com.threerings.getdown.data.SysProps;
+import com.threerings.getdown.data.*;
 import com.threerings.getdown.net.Downloader;
 import com.threerings.getdown.net.HTTPDownloader;
 import com.threerings.getdown.tools.Patcher;
@@ -1168,7 +1165,7 @@ public abstract class GetdownController extends Thread
     };
 
     protected Application _app;
-    protected Application.UpdateInterface _ifc = new Application.UpdateInterface();
+    protected UpdateInterface _ifc = new UpdateInterface();
 
     protected ResourceBundle _msgs;
     protected Container _container;

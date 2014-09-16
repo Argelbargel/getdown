@@ -47,7 +47,7 @@ public class ConnectionUtil
         return conn;
     }
 
-    public static File download(URL url, File target) throws IOException {
+    public static File download(File target, URL url) throws IOException {
         InputStream in = null;
         OutputStream out = null;
         try {

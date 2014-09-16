@@ -19,7 +19,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import static com.threerings.getdown.Log.log;
-import static com.threerings.getdown.util.VersionUtil.createVersionedUrl;
 
 /**
  * {@link DigestsUtil} contains helper methods concerning the calculation of message-digests stored in
@@ -55,16 +54,9 @@ public final class DigestsUtil {
         return Digests.create(contents, version);
     }
 
-    /**
-     * @deprecated appbase should already be an URL!
-     */
-    public static Digests downloadDigests(File appdir, String appbase, String version, Collection<Certificate> certificates) throws IOException {
-        return downloadDigests(appdir, new URL(appbase), version, certificates);
-    }
-
     public static Digests downloadDigests(File appdir, URL appbase, String version, Collection<Certificate> certificates) throws IOException {
-        URL digestsURL = new URL(createVersionedUrl(appbase, version), DIGESTS_FILE_NAME);
-        File tmpDigests = ConnectionUtil.download(digestsURL, FileUtil.createTempFile(DIGESTS_FILE_NAME, ".new", true));
+        URL digestsURL = new URL(appbase, DIGESTS_FILE_NAME);
+        File tmpDigests = ConnectionUtil.download(FileUtil.createTempFile(DIGESTS_FILE_NAME, ".new", true), digestsURL);
 
         if (!certificates.isEmpty()) {
             if (!validateDigestsSignature(tmpDigests, new URL(digestsURL.toString() + DIGESTS_SIGNATURE_SUFFIX), certificates)) {
