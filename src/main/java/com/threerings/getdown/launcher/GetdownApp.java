@@ -92,15 +92,7 @@ public class GetdownApp
         }
 
         // record a few things for posterity
-        log.info("------------------ VM Info ------------------");
-        log.info("-- OS Name: " + System.getProperty("os.name"));
-        log.info("-- OS Arch: " + System.getProperty("os.arch"));
-        log.info("-- OS Vers: " + System.getProperty("os.version"));
-        log.info("-- Java Vers: " + System.getProperty("java.version"));
-        log.info("-- Java Home: " + System.getProperty("java.home"));
-        log.info("-- User Name: " + System.getProperty("user.name"));
-        log.info("-- User Home: " + System.getProperty("user.home"));
-        log.info("-- Cur dir: " + System.getProperty("user.dir"));
+        SysProps.logJVMProperties(log);
         if (!signers.isEmpty()) {
            log.info("class " + GetdownApp.class.getSimpleName() + " is signed. Using signers to validate resources");
         }
@@ -166,8 +158,8 @@ public class GetdownApp
                 protected void showDocument (String url) {
                     String[] cmdarray;
                     if (RunAnywhere.isWindows()) {
-                        String osName = System.getProperty("os.name");
-                        if (osName.indexOf("9") != -1 || osName.indexOf("Me") != -1) {
+                        String osName = SysProps.osName();
+                        if (osName.contains("9") || osName.contains("Me")) {
                             cmdarray = new String[] {
                                 "command.com", "/c", "start", "\"" + url + "\"" };
                         } else {

@@ -6,14 +6,12 @@
 package com.threerings.getdown.data;
 
 import com.samskivert.io.StreamUtil;
-import com.samskivert.text.MessageUtil;
 import com.samskivert.util.ArrayUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.util.*;
 
 import javax.swing.*;
-import java.awt.*;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -39,9 +37,6 @@ import static com.threerings.getdown.Log.log;
  */
 public class Application
 {
-
-    /** The name of our target version file. */
-    public static final String VERSION_FILE = "version.txt";
 
     /** System properties that are prefixed with this string will be passed through to our
      * application (minus this prefix). */
@@ -105,21 +100,16 @@ public class Application
         _appdir = appdir;
         _appid = appid;
         _signers = (signers == null) ? Collections.<Certificate>emptyList() : signers;
-        _config = getLocalPath(ConfigUtil.CONFIG_FILE);
         _extraJvmArgs = (jvmargs == null) ? ArrayUtil.EMPTY_STRING : jvmargs;
         _extraAppArgs = (appargs == null) ? ArrayUtil.EMPTY_STRING : appargs;
     }
 
     /**
      * Returns a resource that refers to the application configuration file itself.
+     * @todo: remove!
      */
-    public Resource getConfigResource ()
-    {
-        try {
-            return Resource.create(getAppdir(), getAppbase(), ConfigUtil.CONFIG_FILE, false);
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid appbase '" + getAppbase() + "'.", e);
-        }
+    public Resource getConfigResource () {
+        return ConfigUtil.getConfigResource(getAppdir(), getAppbase());
     }
 
     /**
@@ -324,6 +314,7 @@ public class Application
     public UpdateInterface init (boolean checkPlatform)
         throws IOException
     {
+        log.info("(re-)initializing application " + _appid + " at " + getAppdir());
         // @todo: make this a field?
         Configuration config = ConfigUtil.readConfigFile(getAppdir(), checkPlatform);
 
@@ -333,7 +324,7 @@ public class Application
         _appbase = config.getAppbase();
 
         // extract our version information
-        _version = VersionUtil.readLatestVersion(getAppdir(), _appbase);
+        _version = VersionUtil.getLatestVersion(getAppdir(), _appbase);
 
         String prefix = StringUtil.isBlank(_appid) ? "" : (_appid + ".");
 
@@ -454,67 +445,16 @@ public class Application
         // look for a debug.txt file which causes us to run in java.exe on Windows so that we can
         // obtain a thread dump of the running JVM
         _windebug = getLocalPath("debug.txt").exists();
-        return initUpdateInterface(config);
-    }
 
-    private UpdateInterface initUpdateInterface(Configuration config) {
-        // parse and return our application config
-        UpdateInterface ui = new UpdateInterface();
-        _name = ui.name = config.getString("ui.name");
-        ui.progress = config.getRectangle("ui.progress", ui.progress);
-        ui.progressText = config.getColor("ui.progress_text", ui.progressText);
-        ui.progressBar = config.getColor("ui.progress_bar", ui.progressBar);
-        ui.status = config.getRectangle("ui.status", ui.status);
-        ui.statusText = config.getColor("ui.status_text", ui.statusText);
-        ui.textShadow = config.getColor("ui.text_shadow", ui.textShadow);
-        ui.backgroundImage = config.getString("ui.background_image");
-        if (ui.backgroundImage == null) { // support legacy format
-            ui.backgroundImage = config.getString("ui.background");
-        }
-
-        // and now ui.background can refer to the background color, but fall back to black
-        // or white, depending on the brightness of the progressText
-        Color defaultBackground = (.5f < Color.RGBtoHSB(
-                ui.progressText.getRed(), ui.progressText.getGreen(), ui.progressText.getBlue(),
-                null)[2])
-            ? Color.BLACK
-            : Color.WHITE;
-        ui.background = config.getColor("ui.background", defaultBackground);
-        ui.progressImage = config.getString("ui.progress_image");
-        ui.rotatingBackgrounds = config.getStringArray("ui.rotating_background");
-        ui.iconImages = config.getStringArray("ui.icon");
-        ui.errorBackground = config.getString("ui.error_background");
+        // @todo: should these properties have the ui.-prefix?
+        _name = config.getString("ui.name");
         _dockIconPath = config.getString("ui.mac_dock_icon");
         if (_dockIconPath == null) {
             _dockIconPath = "../desktop.icns"; // use a sensible default
         }
 
-        // On an installation error, where do we point the user.
-        String installError = config.getUrl("ui.install_error", null);
-        ui.installError = (installError == null) ?
-            "m.default_install_error" : MessageUtil.taint(installError);
 
-        // the patch notes bits
-        ui.patchNotes = config.getRectangle("ui.patch_notes", ui.patchNotes);
-        ui.patchNotesUrl = config.getUrl("ui.patch_notes_url", null);
-
-        // the play again bits
-        ui.playAgain = config.getRectangle("ui.play_again", ui.playAgain);
-        ui.playAgainImage = config.getString("ui.play_again_image");
-
-        // step progress percentages
-        for (Step step : Step.values()) {
-            String spec = config.getString("ui.percents." + step.name());
-            if (spec != null) {
-                try {
-                    ui.stepPercentages.put(step, Configuration.intsToList(StringUtil.parseIntArray(spec)));
-                } catch (Exception e) {
-                    log.warning("Failed to parse percentages for " + step + ": " + spec);
-                }
-            }
-        }
-
-        return ui;
+        return UpdateInterface.create(config);
     }
 
     private void clear() {
@@ -576,12 +516,12 @@ public class Application
 
         int version;
         try {
-           version = Configuration.parseJavaVersion(System.getProperty("java.version"), "");
+           version = Configuration.parseJavaVersion(SysProps.javaVersion(), "");
         } catch (IOException e) {
            // if we can't parse the java version we're in weird land and should probably just try
            // our luck with what we've got rather than try to download a new jvm
            log.warning("Unable to parse VM version, hoping for the best",
-                 "version", System.getProperty("java.version"), "needed", _javaMinVersion);
+                 "version", SysProps.javaVersion(), "needed", _javaMinVersion);
            return true;
         }
 
@@ -626,8 +566,7 @@ public class Application
         throws IOException
     {
         status.updateStatus("m.updating_metadata");
-        downloadFile(ConfigUtil.CONFIG_FILE);
-
+        ConfigUtil.downloadConfigFile(getAppdir(), getAppbase());
     }
 
     /**
@@ -653,10 +592,13 @@ public class Application
             // version.txt file and "trick" Getdown into thinking that it just needs to validate
             // the application as is; next time the app runs when connected to the internet, it
             // will have to rediscover that it needs updating and reattempt to update itself
+            // @todo: ensure that this happens only if there is no internet-connection (ioexception might have other causes to)
             if (_allowOffline) {
                 log.warning("Failed to update digest files.  Attempting offline operaton.", ex);
-                if (!getLocalPath(VERSION_FILE).delete()) {
-                    log.warning("Deleting version.txt failed.  This probably isn't going to work.");
+                try {
+                    VersionUtil.setLocalVersion(getAppdir(), getVersion());
+                } catch (IOException e) {
+                    log.warning("(Re-)setting local version failed!  This probably isn't going to work.");
                 }
             } else {
                 throw ex;
@@ -698,10 +640,10 @@ public class Application
         }
 
         // pass along our proxy settings
-        String proxyHost;
-        if ((proxyHost = System.getProperty("http.proxyHost")) != null) {
+        String proxyHost = SysProps.proxyHost();
+        if (proxyHost != null) {
             args.add("-Dhttp.proxyHost=" + proxyHost);
-            args.add("-Dhttp.proxyPort=" + System.getProperty("http.proxyPort"));
+            args.add("-Dhttp.proxyPort=" + SysProps.proxyPort());
         }
 
         // add the marker indicating the app is running in getdown
@@ -922,7 +864,7 @@ public class Application
             if (DigestsUtil.validateResourceDigest(crsrc, digests)) {
                 init(true);
             } else {
-                log.warning(ConfigUtil.CONFIG_FILE + " failed to validate even after redownloading. " +
+                log.warning("config-file failed to validate even after redownloading. " +
                             "Blindly forging onward.");
             }
         }
@@ -932,7 +874,7 @@ public class Application
 
         // if we are a versioned application, check for latest version
         if (VersionUtil.isValidVersion(getVersion())) {
-            latestVersion = VersionUtil.readLatestVersion(getAppdir(), ConfigUtil.readConfigFile(getAppdir(), false).getAppbase());
+            latestVersion = VersionUtil.getLatestVersion(getAppdir(), ConfigUtil.readConfigFile(getAppdir(), false).getAppbase());
         }
 
         if (VersionUtil.compareVersions(latestVersion, getVersion()) > 0) {
@@ -1173,7 +1115,6 @@ public class Application
 
     private File _appdir;
     protected String _appid;
-    protected File _config;
     private Digests digests;
 
     private String _version = VersionUtil.NO_VERSION;

@@ -70,6 +70,6 @@ public class Digester
         }
 
 
-        return Digests.create(rsrcs, VersionUtil.readLocalVersion(appdir));
+        return Digests.create(rsrcs, VersionUtil.getLocalVersion(appdir));
     }
 }

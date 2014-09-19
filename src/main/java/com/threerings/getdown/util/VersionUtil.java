@@ -85,25 +85,6 @@ public final class VersionUtil {
      * configuration does not specify a version, it tries to read it from {@link #VERSION_FILE_NAME} in the given
      * application-directory.
      *
-     * @param appdir the application-directory
-     * @param appbase the application's base-url
-     * @return the latest version or {@link #NO_VERSION}, if the application is not versioned
-     * @throws IOException
-     * @deprecated {@link com.threerings.getdown.data.Application} or {@link com.threerings.getdown.data.Configuration}
-     *             should convert the appbase-String into an URL (and report invalid appbases), thus all methods
-     *             accepting the appbase as a String will be removed from the public API
-     */
-    public static String readLatestVersion(File appdir, String appbase) throws IOException {
-        return readLatestVersion(appdir, new URL(appbase));
-    }
-
-    /**
-     * reads the latest version for the application defined by the given application-directory and base-url.
-     *
-     * This implementation first checks the configuration for the versioned-url for {@link #LATEST_VERSION}; if this
-     * configuration does not specify a version, it tries to read it from {@link #VERSION_FILE_NAME} in the given
-     * application-directory.
-     *
      * If the latest version.txt is present and the version specifyied in there is higher than the local version
      * the local version-file is updated.
      *
@@ -112,16 +93,16 @@ public final class VersionUtil {
      * @return the latest version or {@link #NO_VERSION}, if the application is not versioned
      * @throws IOException
      */
-    public static String readLatestVersion(File appdir, URL appbase) throws IOException {
+    public static String getLatestVersion(File appdir, URL appbase) throws IOException {
         URL baseUrl = createVersionedUrl(appbase, LATEST_VERSION);
-        String version = readLocalVersion(appdir);
+        String version = getLocalVersion(appdir);
 
         URL versionURL = new URL(baseUrl, baseUrl.getPath() + "/" + VERSION_FILE_NAME);
 
         try {
             String latestVersion = readVersion(versionURL);
             if (compareVersions(latestVersion, version) > 0) {
-                writeLocalVersion(appdir, latestVersion);
+                setLocalVersion(appdir, latestVersion);
                 version = latestVersion;
             }
         } catch (Exception e) {
@@ -135,7 +116,7 @@ public final class VersionUtil {
     /**
      * Reads a version number from the version-file in the given application-directory
      */
-    public static String readLocalVersion(File appdir) {
+    public static String getLocalVersion(File appdir) {
         File vfile = new File(appdir, VERSION_FILE_NAME);
         if (!(vfile.exists() || vfile.canRead())) {
             return NO_VERSION;
@@ -153,7 +134,7 @@ public final class VersionUtil {
     /**
      * Writes the given version to the version-file in the given application-directory
      */
-    public static void writeLocalVersion(File appdir, String version) throws IOException {
+    public static void setLocalVersion(File appdir, String version) throws IOException {
         PrintStream out = new PrintStream(new FileOutputStream(new File(appdir, VERSION_FILE_NAME)));
         try {
             out.println((isValidVersion(version)) ? version : NO_VERSION);

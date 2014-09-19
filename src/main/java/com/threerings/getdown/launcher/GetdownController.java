@@ -69,7 +69,7 @@ public abstract class GetdownController extends Thread
             // in a directory that contains a !, at least the same bug happens on all platforms
             String dir = appDir.toString();
             if (dir.equals(".")) {
-                dir = System.getProperty("user.dir");
+                dir = SysProps.workingDirectory();
             }
             String errmsg = "The directory in which this application is installed:\n" + dir +
                 "\nis invalid (" + e.getMessage() + "). If the full path to the app directory " +
@@ -109,7 +109,7 @@ public abstract class GetdownController extends Thread
         if (!instdir.canWrite()) {
             String path = instdir.getPath();
             if (path.equals(".")) {
-                path = System.getProperty("user.dir");
+                path = SysProps.workingDirectory();
             }
             fail(MessageUtil.tcompose("m.readonly_error", path));
             return;
@@ -193,7 +193,7 @@ public abstract class GetdownController extends Thread
     protected boolean detectProxy ()
     {
         // we may already have a proxy configured
-        if (System.getProperty("http.proxyHost") != null) {
+        if (SysProps.proxyHost() != null) {
             return true;
         }
 
@@ -311,10 +311,7 @@ public abstract class GetdownController extends Thread
      */
     protected void getdown ()
     {
-        log.info("---------------- Proxy Info -----------------");
-        log.info("-- Proxy Host: " + System.getProperty("http.proxyHost"));
-        log.info("-- Proxy Port: " + System.getProperty("http.proxyPort"));
-        log.info("---------------------------------------------");
+        SysProps.logProxyInfo(log);
 
         try {
             // first parses our application deployment file
@@ -333,7 +330,7 @@ public abstract class GetdownController extends Thread
             }
 
             // Update the config modtime so a sleeping getdown will notice the change.
-            File config = _app.getLocalPath(ConfigUtil.CONFIG_FILE);
+            File config = _app.getConfigResource().getLocalFile();
             if (!config.setLastModified(System.currentTimeMillis())) {
                 log.warning("Unable to set modtime on config file, will be unable to check for " +
                             "another instance of getdown running while this one waits.");
@@ -415,7 +412,7 @@ public abstract class GetdownController extends Thread
                         if (!ufile.exists()) {
                             ufile.createNewFile();
                         } else {
-                            localVersion = VersionUtil.readLocalVersion(ufile);
+                            localVersion = VersionUtil.getLocalVersion(ufile);
                         }
 
                         if (VersionUtil.compareVersions(localVersion, aversion) < 0) {
@@ -425,7 +422,7 @@ public abstract class GetdownController extends Thread
                             updateStatus("m.validating");
                             _app.unpackResources(_progobs, unpacked);
                             try {
-                                VersionUtil.writeLocalVersion(ufile, String.valueOf(aversion));
+                                VersionUtil.setLocalVersion(ufile, String.valueOf(aversion));
                             } catch (IOException ioe) {
                                 log.warning("Failed to update unpacked version", ioe);
                             }

@@ -81,19 +81,19 @@ public class VersionUtilTest {
         createLatestVersionFile(tmpDir, version);
         URL appbase = new File(tmpDir, VERSION_URL_PLACEHOLDER).toURI().toURL();
 
-        assertEquals(version, VersionUtil.readLatestVersion(tmpDir, appbase));
-        assertEquals(version, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(version, VersionUtil.getLatestVersion(tmpDir, appbase));
+        assertEquals(version, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @Test
     public void testReadVersionFromLocalVersionFileIfLatestDoesNotExist() throws IOException {
         String version = "1.6.1";
         File tmpDir = FileTestHelper.getTempDirectory();
-        VersionUtil.writeLocalVersion(tmpDir, version);
+        VersionUtil.setLocalVersion(tmpDir, version);
         URL appbase = new File(tmpDir, VERSION_URL_PLACEHOLDER).toURI().toURL();
 
-        assertEquals(version, VersionUtil.readLatestVersion(tmpDir, appbase));
-        assertEquals(version, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(version, VersionUtil.getLatestVersion(tmpDir, appbase));
+        assertEquals(version, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @Test
@@ -102,11 +102,11 @@ public class VersionUtilTest {
         String remoteVersion = "1.6.0";
         File tmpDir = FileTestHelper.getTempDirectory();
         createLatestVersionFile(tmpDir, remoteVersion);
-        VersionUtil.writeLocalVersion(tmpDir, localVersion);
+        VersionUtil.setLocalVersion(tmpDir, localVersion);
         URL appbase = new File(tmpDir, VERSION_URL_PLACEHOLDER).toURI().toURL();
 
-        assertEquals(localVersion, VersionUtil.readLatestVersion(tmpDir, appbase));
-        assertEquals(localVersion, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(localVersion, VersionUtil.getLatestVersion(tmpDir, appbase));
+        assertEquals(localVersion, VersionUtil.getLocalVersion(tmpDir));
     }
 
 
@@ -115,37 +115,37 @@ public class VersionUtilTest {
     public void testReadVersion() throws IOException {
         String version = "1.6";
         File tmpDir = FileTestHelper.getTempDirectory();
-        VersionUtil.writeLocalVersion(tmpDir, version);
+        VersionUtil.setLocalVersion(tmpDir, version);
 
-        assertEquals(version, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(version, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @Test
     public void testWriteVersion() throws IOException {
         String version = "1.7";
         File tmpDir = FileTestHelper.getTempDirectory();
-        VersionUtil.writeLocalVersion(tmpDir, version);
+        VersionUtil.setLocalVersion(tmpDir, version);
 
         assertTrue(new File(tmpDir, VERSION_FILE_NAME).exists());
-        assertEquals(version, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(version, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @Test
     public void testWriteVersionForNoVersion() throws IOException {
         File tmpDir = FileTestHelper.getTempDirectory();
-        VersionUtil.writeLocalVersion(tmpDir, NO_VERSION);
+        VersionUtil.setLocalVersion(tmpDir, NO_VERSION);
 
         assertTrue(new File(tmpDir, VERSION_FILE_NAME).exists());
-        assertEquals(NO_VERSION, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(NO_VERSION, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @Test
     public void testWriteVersionForInvalidVersion() throws IOException {
         File tmpDir = FileTestHelper.getTempDirectory();
-        VersionUtil.writeLocalVersion(tmpDir, ".- \n");
+        VersionUtil.setLocalVersion(tmpDir, ".- \n");
 
         assertTrue(new File(tmpDir, VERSION_FILE_NAME).exists());
-        assertEquals(NO_VERSION, VersionUtil.readLocalVersion(tmpDir));
+        assertEquals(NO_VERSION, VersionUtil.getLocalVersion(tmpDir));
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -153,6 +153,6 @@ public class VersionUtilTest {
         File latestDir = new File(dir, LATEST_VERSION);
         latestDir.mkdir();
         latestDir.deleteOnExit();
-        VersionUtil.writeLocalVersion(latestDir, version);
+        VersionUtil.setLocalVersion(latestDir, version);
     }
 }

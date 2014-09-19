@@ -5,6 +5,10 @@
 
 package com.threerings.getdown.data;
 
+import com.samskivert.util.Logger;
+import com.samskivert.util.StringUtil;
+import com.threerings.getdown.Log;
+
 /**
  * This class encapsulates all system properties that are read and processed by Getdown. Don't
  * stick a call to {@code System.getProperty} randomly into the code, put it in here and give it an
@@ -39,6 +43,10 @@ public class SysProps
     public static String appbaseDomain () {
         return System.getProperty("appbase_domain");
     }
+
+    public static String osName() { return StringUtil.deNull(System.getProperty("os.name")).toLowerCase(); }
+
+    public static String proxyHost() { return System.getProperty("http.proxyHost"); }
 
     /** If true, Getdown installs the app without ever bringing up a UI, except in the event of an
      * error. NOTE: it does not launch the app. See {@link #launchInSilent}.
@@ -78,5 +86,57 @@ public class SysProps
      * communicating is not available. Usage: {@code -Dconnect_timeout=N}. */
     public static int connectTimeout () {
         return Integer.getInteger("connect_timeout", 0);
+    }
+
+    public static String proxyPort() {
+        return System.getProperty("http.proxyPort");
+    }
+
+    public static String javaVersion() {
+        return System.getProperty("java.version");
+    }
+
+    public static String osArch() {
+        return StringUtil.deNull(System.getProperty("os.arch")).toLowerCase();
+    }
+
+    public static String osVersion() {
+        return StringUtil.deNull(System.getProperty("os.version")).toLowerCase();
+    }
+
+    public static String javaHome() {
+        return System.getProperty("java.home");
+    }
+
+    public static String userName() {
+        return System.getProperty("user.name");
+    }
+
+    public static String userHome() {
+        return System.getProperty("user.home");
+    }
+
+    public static String workingDirectory() {
+        return System.getProperty("user.dir");
+    }
+
+    public static void logJVMProperties(Logger log) {
+        // record a few things for posterity
+        log.info("------------------ VM Info ------------------");
+        Log.log.info("-- OS Name: " + osName());
+        Log.log.info("-- OS Arch: " + osArch());
+        Log.log.info("-- OS Vers: " + osVersion());
+        Log.log.info("-- Java Vers: " + javaVersion());
+        Log.log.info("-- Java Home: " + javaHome());
+        Log.log.info("-- User Name: " + userName());
+        Log.log.info("-- User Home: " + userHome());
+        Log.log.info("-- Current directory: " + workingDirectory());
+    }
+
+    public static void logProxyInfo(Logger log) {
+        log.info("---------------- Proxy Info -----------------");
+        Log.log.info("-- Proxy Host: " + System.getProperty("http.proxyHost"));
+        Log.log.info("-- Proxy Port: " + System.getProperty("http.proxyPort"));
+        Log.log.info("---------------------------------------------");
     }
 }

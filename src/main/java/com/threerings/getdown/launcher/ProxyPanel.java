@@ -23,6 +23,7 @@ import com.samskivert.swing.GroupLayout;
 import com.samskivert.swing.Spacer;
 import com.samskivert.swing.VGroupLayout;
 import com.samskivert.text.MessageUtil;
+import com.threerings.getdown.data.SysProps;
 
 import static com.threerings.getdown.Log.log;
 
@@ -67,11 +68,11 @@ public class ProxyPanel extends JPanel
         add(row);
 
         // set up any existing proxy defaults
-        String host = System.getProperty("http.proxyHost");
+        String host = SysProps.proxyHost();
         if (host != null) {
             _host.setText(host);
         }
-        String port = System.getProperty("http.proxyPort");
+        String port = SysProps.proxyPort();
         if (port != null) {
             _port.setText(port);
         }

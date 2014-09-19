@@ -8,6 +8,7 @@ package com.threerings.getdown.util;
 import com.samskivert.text.MessageUtil;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.data.Configuration;
+import com.threerings.getdown.data.Resource;
 import com.threerings.getdown.data.SysProps;
 
 import java.io.*;
@@ -24,8 +25,16 @@ import static com.threerings.getdown.Log.log;
  * be repeated, in which case they will be made to reference an array of values.
  */
 public class ConfigUtil {
-    /** The name of our configuration file. */
-    public static final String CONFIG_FILE = "getdown.txt";
+    /* for internal use & tests only */
+    static final String CONFIG_FILE = "getdown.txt";
+
+    public static Resource getConfigResource(File appdir, URL appbase) {
+        try {
+            return Resource.create(appdir, appbase, ConfigUtil.CONFIG_FILE, false);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid appbase '" + appbase + "'.", e);
+        }
+    }
 
     public static Configuration downloadConfigFile(File appdir, URL appbase) throws IOException {
         ConnectionUtil.download(new File(appdir, CONFIG_FILE), new URL(appbase, CONFIG_FILE));
@@ -63,7 +72,7 @@ public class ConfigUtil {
             cdata.put("appbase", appbase);
         }
 
-        return createConfiguration(appdir, (cdata != null) ? cdata : Collections.<String, Object>emptyMap());
+        return createConfiguration(appdir, cdata);
     }
 
     private static Configuration createConfiguration(File appdir, Map<String, Object> data) throws MalformedURLException {
@@ -117,8 +126,8 @@ public class ConfigUtil {
     {
         return parsePairs(
             config,
-            checkPlatform ? StringUtil.deNull(System.getProperty("os.name")).toLowerCase() : null,
-            checkPlatform ? StringUtil.deNull(System.getProperty("os.arch")).toLowerCase() : null);
+            checkPlatform ? SysProps.osName() : null,
+            checkPlatform ? SysProps.osArch() : null);
     }
 
     /**
@@ -154,7 +163,7 @@ public class ConfigUtil {
         return data;
     }
 
-    /** A helper function for {@link #parsePairs(Reader,boolean}. */
+    /** A helper function for {@link #parsePairs(Reader,boolean)}. */
     protected static List<String[]> parsePairs (Reader config, String osname, String osarch)
         throws IOException
     {
@@ -221,7 +230,7 @@ public class ConfigUtil {
     protected static boolean checkQualifiers (String quals, String osname, String osarch)
     {
         if (quals.startsWith("!")) {
-            if (quals.indexOf(",") != -1) { // sanity check
+            if (quals.contains(",")) { // sanity check
                 log.warning("Multiple qualifiers cannot be used when one of the qualifiers " +
                             "is negative", "quals", quals);
                 return false;
@@ -241,6 +250,6 @@ public class ConfigUtil {
     {
         String[] bits = qual.trim().toLowerCase().split("-");
         String os = bits[0], arch = (bits.length > 1) ? bits[1] : "";
-        return (osname.indexOf(os) != -1) && (osarch.indexOf(arch) != -1);
+        return (osname.contains(os)) && (osarch.contains(arch));
     }
 }

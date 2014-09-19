@@ -8,6 +8,7 @@ package com.threerings.getdown.launcher;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.data.Configuration;
+import com.threerings.getdown.data.SysProps;
 import com.threerings.getdown.util.ConfigUtil;
 
 import javax.swing.*;
@@ -127,7 +128,7 @@ public class GetdownAppletConfig
         String root;
         if (RunAnywhere.isWindows()) {
             root = "Application Data";
-            String verStr = System.getProperty("os.version");
+            String verStr = SysProps.osVersion();
             try {
                 if (Float.parseFloat(verStr) >= 6.0f) {
                     // Vista makes us write it here.... Yay.
@@ -141,7 +142,7 @@ public class GetdownAppletConfig
         } else /* isLinux() or something wacky */{
             root = ".getdown";
         }
-        appdir = new File(System.getProperty("user.home") + File.separator + root + File.separator
+        appdir = new File(SysProps.userHome() + File.separator + root + File.separator
             + appname);
 
         installerFileContents = getParameter("installer");
@@ -195,18 +196,9 @@ public class GetdownAppletConfig
         setSystemProperties();
         ensureAppdirExists();
         createFiles();
+        SysProps.logJVMProperties(log);
 
-        // record a few things for posterity
-        log.info("------------------ VM Info ------------------");
-        log.info("-- OS Name: " + System.getProperty("os.name"));
-        log.info("-- OS Arch: " + System.getProperty("os.arch"));
-        log.info("-- OS Vers: " + System.getProperty("os.version"));
-        log.info("-- Java Vers: " + System.getProperty("java.version"));
-        log.info("-- Java Home: " + System.getProperty("java.home"));
-        log.info("-- User Name: " + System.getProperty("user.name"));
-        log.info("-- User Home: " + System.getProperty("user.home"));
-        log.info("-- Cur dir: " + System.getProperty("user.dir"));
-        log.info("---------------------------------------------");
+
     }
 
     /**

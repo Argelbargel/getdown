@@ -22,8 +22,7 @@ import static com.threerings.getdown.Log.log;
 
 /**
  * {@link DigestsUtil} contains helper methods concerning the calculation of message-digests stored in
- * {@link DigestsUtil#DIGESTS_FILE_NAME} used to validate the resources referenced in our
- * {@link com.threerings.getdown.util.ConfigUtil#CONFIG_FILE}.
+ * {@link DigestsUtil#DIGESTS_FILE_NAME} used to validate the resources referenced in our config-file
  */
 public final class DigestsUtil {
     /* for internal use & tests only */

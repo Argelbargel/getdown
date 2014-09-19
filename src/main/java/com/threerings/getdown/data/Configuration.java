@@ -44,7 +44,7 @@ public class Configuration {
      * Massages a single string into an array and leaves existing array values as is. Simplifies
      * access to parameters that are expected to be arrays.
      */
-    public static String[] getMultiValue (Map<String, Object> data, String name)
+    private static String[] getMultiValue (Map<String, Object> data, String name)
     {
         Object value = data.get(name);
         if (value instanceof String) {
@@ -59,15 +59,7 @@ public class Configuration {
     }
 
     public void parseResources(String version, String name, boolean unpack, List<Resource> list) {
-        parseResources(appdir, appbase, version, data, name, unpack, list);
-    }
-
-
-    /** Used to parse resources with the specified name. */
-    protected static void parseResources(File appdir, URL appbase, String version, Map<String, Object> cdata, String name, boolean unpack,
-                                         List<Resource> list)
-    {
-        String[] rsrcs = getMultiValue(cdata, name);
+        String[] rsrcs = getMultiValue(data, name);
         if (rsrcs == null) {
             return;
         }
@@ -80,13 +72,9 @@ public class Configuration {
         }
     }
 
-    public Rectangle getRectangle(String name, Rectangle def) {
-        return parseRect(data, name, def);
-    }
 
-    /** Used to parse rectangle specifications from the config file. */
-    protected static Rectangle parseRect(Map<String, Object> cdata, String name, Rectangle def) {
-        String value = (String)cdata.get(name);
+    public Rectangle getRectangle(String name, Rectangle def) {
+        String value = (String) data.get(name);
         Rectangle rect = parseRect(name, value);
         return (rect == null) ? def : rect;
     }
@@ -120,11 +108,7 @@ public class Configuration {
 
     /** Used to parse color specifications from the config file. */
     public Color getColor(String name, Color def) {
-        return parseColor(data, name, def);
-    }
-
-    protected static Color parseColor(Map<String, Object> cdata, String name, Color def) {
-        String value = (String)cdata.get(name);
+        String value = (String) data.get(name);
         Color color = parseColor(value);
         return (color == null) ? def : color;
     }
@@ -147,33 +131,23 @@ public class Configuration {
 
     /** Parses a list of strings from the config file. */
     public String[] parseList(String name) {
-        return parseList(data, name);
-    }
-
-
-    protected static String[] parseList(Map<String, Object> cdata, String name)
-    {
-        String value = (String)cdata.get(name);
+        String value = (String) data.get(name);
         return (value == null) ? ArrayUtil.EMPTY_STRING : StringUtil.parseStringArray(value);
     }
+
 
     /**
      * Parses a URL from the config file, checking first for a localized version.
      */
     public String getUrl(String name, String def) {
-        return parseUrl(data, name, def);
-    }
-
-
-    protected static String parseUrl(Map<String, Object> cdata, String name, String def)
-    {
-        String value = (String)cdata.get(name + "." + Locale.getDefault().getLanguage());
+        String value = (String) data.get(name + "." + Locale.getDefault().getLanguage());
         if (!StringUtil.isBlank(value)) {
             return value;
         }
-        value = (String)cdata.get(name);
+        value = (String) data.get(name);
         return StringUtil.isBlank(value) ? def : value;
     }
+
 
     protected static int parseJavaVersion (String value, String errkey) throws IOException {
       try {
@@ -185,11 +159,6 @@ public class Configuration {
    }
 
     public String getString(String key) {
-        return getString(data, key);
-    }
-
-
-    public static String getString(Map<String, Object> cdata, String key) {
-        return (String) cdata.get( key);
+        return (String) data.get(key);
     }
 }

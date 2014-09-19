@@ -13,6 +13,7 @@ import java.io.PrintStream;
 import com.samskivert.io.StreamUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
+import com.threerings.getdown.data.SysProps;
 
 import static com.threerings.getdown.Log.log;
 
@@ -52,10 +53,7 @@ public class LaunchUtil
         throws IOException
     {
         // create the file that instructs Getdown to upgrade
-        File vfile = new File(appdir, "version.txt");
-        PrintStream ps = new PrintStream(new FileOutputStream(vfile));
-        ps.println(newVersion);
-        ps.close();
+        VersionUtil.setLocalVersion(appdir, newVersion);
 
         // make sure that we can find our getdown.jar file and can safely launch children
         File pro = new File(appdir, getdownJarName);
@@ -97,13 +95,13 @@ public class LaunchUtil
 
         // then fall back to the VM in which we're already running
         if (vmpath == null) {
-            vmpath = checkJVMPath(System.getProperty("java.home"), windebug);
+            vmpath = checkJVMPath(SysProps.javaHome(), windebug);
         }
 
         // then throw up our hands and hope for the best
         if (vmpath == null) {
             log.warning("Unable to find java [appdir=" + appdir +
-                        ", java.home=" + System.getProperty("java.home") + "]!");
+                        ", java.home=" + SysProps.javaHome() + "]!");
             vmpath = "java";
         }
 
@@ -184,8 +182,8 @@ public class LaunchUtil
      */
     public static boolean mustMonitorChildren ()
     {
-        String osname = System.getProperty("os.name").toLowerCase();
-        return (osname.indexOf("windows 98") != -1 || osname.indexOf("windows me") != -1);
+        String osname = SysProps.osName();
+        return (osname.contains("windows 98") || osname.contains("windows me"));
     }
 
     /**
