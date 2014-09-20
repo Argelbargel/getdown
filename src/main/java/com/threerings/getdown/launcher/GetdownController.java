@@ -1036,11 +1036,11 @@ public abstract class GetdownController extends Thread
         } else if (progress > 0) {
             // we need to make sure we do the right thing if we skip over progress levels
             do {
-                new ProgressReporter(_app.getTracking(), ++_reportedProgress).start();
+                _app.getTracking().createReporter(++_reportedProgress).start();
             } while (_reportedProgress <= progress);
 
         } else {
-            new ProgressReporter(_app.getTracking(), event).start();
+            _app.getTracking().createReporter(event).start();
         }
     }
 
@@ -1104,55 +1104,6 @@ public abstract class GetdownController extends Thread
             }
         } catch (IOException ioe) {
             log.warning("Failure copying", "in", in, "out", out, "error", ioe);
-        }
-    }
-
-    /** Used to fetch a progress report URL. */
-    protected class ProgressReporter extends Thread {
-        private final Tracking tracking;
-        private final String event;
-
-        public ProgressReporter(Tracking t, int progress) {
-            this(t, "pct" + progress);
-        }
-
-        public ProgressReporter(Tracking t, String evt) {
-            tracking = t;
-            event = evt;
-            setDaemon(true);
-        }
-
-        @Override
-        public void run () {
-            URL url = tracking.getURL(event);
-            if (url != null) {
-                try {
-                    HttpURLConnection ucon = ConnectionUtil.openHttp(url);
-
-                    // if we have a tracking cookie configured, configure the request with it
-                    if (tracking.getCookieName() != null &&
-                            tracking.getCookieProperty() != null) {
-                        String val = System.getProperty(tracking.getCookieProperty());
-                        if (val != null) {
-                            ucon.setRequestProperty("Cookie", tracking.getCookieName() + "=" + val);
-                        }
-                    }
-
-                    // now request our tracking URL and ensure that we get a non-error response
-                    ucon.connect();
-                    try {
-                        if (ucon.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                            log.warning("Failed to report tracking event",
-                                    "url", url, "rcode", ucon.getResponseCode());
-                        }
-                    } finally {
-                        ucon.disconnect();
-                    }
-
-                } catch (IOException ioe) {
-                    log.warning("Failed to report tracking event", "url", url, "error", ioe);
-                }
-            }
         }
     }
 
