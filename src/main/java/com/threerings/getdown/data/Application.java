@@ -33,8 +33,7 @@ import static com.threerings.getdown.Log.log;
  * Parses and provide access to the information contained in the <code>getdown.txt</code>
  * configuration file.
  */
-public class Application
-{
+public class Application {
 
     /** System properties that are prefixed with this string will be passed through to our
      * application (minus this prefix). */
@@ -160,43 +159,8 @@ public class Application
         }
     }
 
-    /**
-     * Returns the URL to use to report an initial download event. Returns null if no tracking
-     * start URL was configured for this application.
-     *
-     * @param event the event to be reported: start, jvm_start, jvm_complete, complete.
-     * todo: move to own data-class or utility
-     */
-    public URL getTrackingURL(String event) {
-        return TrackingUtil.getTrackingURL(event, _trackingURLSuffix, _trackingURL, _trackingGAHash, _trackingStart, _trackingId);
-    }
-
-    /**
-     * Returns the URL to request to report that we have reached the specified percentage of our
-     * initial download. Returns null if no tracking request was configured for the specified
-     * percentage.
-     * todo: move to own data-class or utility
-     */
-    public URL getTrackingProgressURL(int percent) {
-        return TrackingUtil.getTrackingProgressURL(this, percent, _trackingPcts);
-    }
-
-    /**
-     * Returns the name of our tracking cookie or null if it was not set.
-     * todo: move to own data-class or utility
-     */
-    public String getTrackingCookieName ()
-    {
-        return _trackingCookieName;
-    }
-
-    /**
-     * Returns the name of our tracking cookie system property or null if it was not set.
-     * todo: move to own data-class or utility
-     */
-    public String getTrackingCookieProperty ()
-    {
-        return _trackingCookieProperty;
+    public Tracking getTracking() {
+        return tracking;
     }
 
     /**
@@ -259,30 +223,14 @@ public class Application
             _javaLocation = (String)javaloc;
         }
 
-        // determine whether we have any tracking configuration
-        _trackingURL = config.getString("tracking_url");
+        tracking = new Tracking(config.getString("tracking_url"),
+                                config.getString("tracking_url_suffix"),
+                                config.getString("tracking_cookie_name"),
+                                config.getString("tracking_cookie_property"),
+                                config.getString("tracking_ga_hash"),
+                                config.getString("tracking_percents")
+                                );
 
-        // check for tracking progress percent configuration
-        String trackPcts = config.getString("tracking_percents");
-        if (!StringUtil.isBlank(trackPcts)) {
-            _trackingPcts = new HashSet<Integer>();
-            for (int pct : StringUtil.parseIntArray(trackPcts)) {
-                _trackingPcts.add(pct);
-            }
-        } else if (!StringUtil.isBlank(_trackingURL)) {
-            _trackingPcts = new HashSet<Integer>();
-            _trackingPcts.add(50);
-        }
-
-        // Check for tracking cookie configuration
-        _trackingCookieName = config.getString("tracking_cookie_name");
-        _trackingCookieProperty = config.getString("tracking_cookie_property");
-
-        // Some app may need an extra suffix added to the tracking URL
-        _trackingURLSuffix = config.getString("tracking_url_suffix");
-
-        // Some app may need to generate google analytics code
-        _trackingGAHash = config.getString("tracking_ga_hash");
 
         // clear our arrays as we may be reinitializing
         clear();
@@ -934,6 +882,7 @@ public class Application
         }
     }
 
+    private Tracking tracking = new Tracking();
     private File _appdir;
     protected String _appid;
     private Digests digests;
@@ -946,22 +895,11 @@ public class Application
     protected boolean _windebug;
     protected boolean _allowOffline;
 
-    protected String _trackingURL;
-    protected Set<Integer> _trackingPcts;
-    protected String _trackingCookieName;
-    protected String _trackingCookieProperty;
-    protected String _trackingURLSuffix;
-    protected String _trackingGAHash;
-    protected long _trackingStart;
-    protected int _trackingId;
-
     protected int _javaMinVersion, _javaMaxVersion;
     protected boolean _javaExactVersionRequired;
     protected String _javaLocation;
 
     private ResourceGroup _resources = new ResourceGroup();
-
-    protected Map<String,Boolean> _auxactive = new HashMap<String,Boolean>();
 
     protected List<String> _jvmargs = new ArrayList<String>();
     protected List<String> _appargs = new ArrayList<String>();

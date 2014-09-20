@@ -1036,17 +1036,11 @@ public abstract class GetdownController extends Thread
         } else if (progress > 0) {
             // we need to make sure we do the right thing if we skip over progress levels
             do {
-                URL url = _app.getTrackingProgressURL(++_reportedProgress);
-                if (url != null) {
-                    new ProgressReporter(url).start();
-                }
+                new ProgressReporter(_app.getTracking(), ++_reportedProgress).start();
             } while (_reportedProgress <= progress);
 
         } else {
-            URL url = _app.getTrackingURL(event);
-            if (url != null) {
-                new ProgressReporter(url).start();
-            }
+            new ProgressReporter(_app.getTracking(), event).start();
         }
     }
 
@@ -1114,44 +1108,52 @@ public abstract class GetdownController extends Thread
     }
 
     /** Used to fetch a progress report URL. */
-    protected class ProgressReporter extends Thread
-    {
-        public ProgressReporter (URL url) {
+    protected class ProgressReporter extends Thread {
+        private final Tracking tracking;
+        private final String event;
+
+        public ProgressReporter(Tracking t, int progress) {
+            this(t, "pct" + progress);
+        }
+
+        public ProgressReporter(Tracking t, String evt) {
+            tracking = t;
+            event = evt;
             setDaemon(true);
-            _url = url;
         }
 
         @Override
         public void run () {
-            try {
-                HttpURLConnection ucon = ConnectionUtil.openHttp(_url);
-
-                // if we have a tracking cookie configured, configure the request with it
-                if (_app.getTrackingCookieName() != null &&
-                    _app.getTrackingCookieProperty() != null) {
-                    String val = System.getProperty(_app.getTrackingCookieProperty());
-                    if (val != null) {
-                        ucon.setRequestProperty("Cookie", _app.getTrackingCookieName() + "=" + val);
-                    }
-                }
-
-                // now request our tracking URL and ensure that we get a non-error response
-                ucon.connect();
+            URL url = tracking.getURL(event);
+            if (url != null) {
                 try {
-                    if (ucon.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                        log.warning("Failed to report tracking event",
-                            "url", _url, "rcode", ucon.getResponseCode());
-                    }
-                } finally {
-                    ucon.disconnect();
-                }
+                    HttpURLConnection ucon = ConnectionUtil.openHttp(url);
 
-            } catch (IOException ioe) {
-                log.warning("Failed to report tracking event", "url", _url, "error", ioe);
+                    // if we have a tracking cookie configured, configure the request with it
+                    if (tracking.getCookieName() != null &&
+                            tracking.getCookieProperty() != null) {
+                        String val = System.getProperty(tracking.getCookieProperty());
+                        if (val != null) {
+                            ucon.setRequestProperty("Cookie", tracking.getCookieName() + "=" + val);
+                        }
+                    }
+
+                    // now request our tracking URL and ensure that we get a non-error response
+                    ucon.connect();
+                    try {
+                        if (ucon.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                            log.warning("Failed to report tracking event",
+                                    "url", url, "rcode", ucon.getResponseCode());
+                        }
+                    } finally {
+                        ucon.disconnect();
+                    }
+
+                } catch (IOException ioe) {
+                    log.warning("Failed to report tracking event", "url", url, "error", ioe);
+                }
             }
         }
-
-        protected URL _url;
     }
 
     /** Used to pass progress on to our user interface. */
