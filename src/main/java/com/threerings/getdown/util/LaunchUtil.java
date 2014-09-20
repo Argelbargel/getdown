@@ -5,11 +5,11 @@
 
 package com.threerings.getdown.util;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
+
 import com.samskivert.io.StreamUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
@@ -21,10 +21,56 @@ import static com.threerings.getdown.Log.log;
  * Useful routines for launching Java applications from within other Java
  * applications.
  */
-public class LaunchUtil
-{
+public class LaunchUtil {
+    private static final String AUXGROUP_FILE_NAME = "auxgroups.dat";
+
     /** The directory into which a local VM installation should be unpacked. */
     public static final String LOCAL_JAVA_DIR = "java_vm";
+
+    public static boolean activateAuxGroupAndRelaunch(File appdir, String getdownJarName, String name) throws IOException {
+        File auxgroupFile = new File(appdir, AUXGROUP_FILE_NAME);
+
+        Collection<String> activeAuxGroups = getActiveAuxGroups(appdir);
+        activeAuxGroups.add(name);
+
+        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(auxgroupFile));
+        try {
+            out.writeObject(activeAuxGroups);
+        } catch (IOException e) {
+            log.warning("error activating auxgroup", e);
+        }
+
+        return relaunch(appdir, getdownJarName);
+    }
+
+
+    public static boolean isAuxGroupActive(File appdir, String name) {
+        try {
+            return StringUtil.isBlank(name) || getActiveAuxGroups(appdir).contains(name);
+        } catch (IOException e) {
+            log.warning("error reading activated aux-groups", e);
+            return false;
+        }
+    }
+
+
+    @SuppressWarnings("unchecked")
+    private static Set<String> getActiveAuxGroups(File appdir) throws IOException {
+        File auxgroupFile = new File(appdir, AUXGROUP_FILE_NAME);
+
+        if (auxgroupFile.exists()) {
+            ObjectInputStream in = new ObjectInputStream(new FileInputStream(auxgroupFile));
+            try {
+                return (Set<String>) in.readObject();
+            } catch (ClassNotFoundException e) {
+                throw new IOException("error reading activated auxgroups", e);
+            } finally {
+                in.close();
+            }
+        }
+
+        return Collections.emptySet();
+    }
 
     /**
      * Writes a <code>version.txt</code> file into the specified application directory and
@@ -54,7 +100,12 @@ public class LaunchUtil
     {
         // create the file that instructs Getdown to upgrade
         VersionUtil.setLocalVersion(appdir, newVersion);
+        return relaunch(appdir, getdownJarName);
 
+
+    }
+
+    public static boolean relaunch(File appdir, String getdownJarName) {
         // make sure that we can find our getdown.jar file and can safely launch children
         File pro = new File(appdir, getdownJarName);
         if (mustMonitorChildren() || !pro.exists()) {
@@ -130,7 +181,7 @@ public class LaunchUtil
      * <p> If the upgrade fails for a variety of reasons, warnings are logged but no other actions
      * are taken. There's not much else one can do other than try again next time around.
      */
-    public static void upgradeGetdown (File oldgd, File curgd, File newgd)
+    public static void upgradeGetdown(File oldgd, File curgd, File newgd)
     {
         // we assume getdown's jar file size changes with every upgrade, this is not guaranteed,
         // but in reality it will, and it allows us to avoid pointlessly upgrading getdown every

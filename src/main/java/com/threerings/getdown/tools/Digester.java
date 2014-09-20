@@ -5,9 +5,8 @@
 
 package com.threerings.getdown.tools;
 
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Digests;
-import com.threerings.getdown.data.ResourceGroup;
+import com.threerings.getdown.data.*;
+import com.threerings.getdown.util.ConfigUtil;
 import com.threerings.getdown.util.DigestsUtil;
 import com.threerings.getdown.util.SecurityUtil;
 import com.threerings.getdown.util.VersionUtil;
@@ -56,17 +55,14 @@ public class Digester
      */
     private static Digests createDigests(File appdir) throws IOException {
         // create our application and instruct it to parse its business
-        Application app = new Application(appdir, null);
-        app.init(false);
+        Configuration config = ConfigUtil.readConfigFile(appdir, false);
 
         ResourceGroup rsrcs = new ResourceGroup();
-        rsrcs.addResources(app.getConfigResource());
-        rsrcs.addResources(app.getCodeResources());
-        rsrcs.addResources(app.getResources());
-        for (Application.AuxGroup ag : app.getAuxGroups()) {
-            ResourceGroup srsrcs = rsrcs.getSubgroup(ag.name);
-            srsrcs.addResources(ag.codes);
-            srsrcs.addResources(ag.rsrcs);
+        rsrcs.addResources(ConfigUtil.getConfigResource(appdir, config.getAppbase()));
+        rsrcs.addResources(config.getResources().getResources(ResourceType.CONFIGURABLE_RESOURCES));
+        for (ResourceGroup ag : config.getResources().getSubgroups()) {
+            ResourceGroup srsrcs = rsrcs.getSubgroup(ag.getName());
+            srsrcs.addResources(ag.getResources(ResourceType.CONFIGURABLE_RESOURCES));
         }
 
 

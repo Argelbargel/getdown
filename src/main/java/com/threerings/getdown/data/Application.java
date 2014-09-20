@@ -5,7 +5,6 @@
 
 package com.threerings.getdown.data;
 
-import com.samskivert.io.StreamUtil;
 import com.samskivert.util.ArrayUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
@@ -16,7 +15,6 @@ import java.io.*;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLConnection;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
@@ -58,21 +56,6 @@ public class Application
     }
 
     /**
-     * Contains metadata for an auxiliary resource group.
-     */
-    public static class AuxGroup {
-        public final String name;
-        public final List<Resource> codes;
-        public final List<Resource> rsrcs;
-
-        public AuxGroup (String name, List<Resource> codes, List<Resource> rsrcs) {
-            this.name = name;
-            this.codes = Collections.unmodifiableList(codes);
-            this.rsrcs = Collections.unmodifiableList(rsrcs);
-        }
-    }
-
-    /**
      * Creates an application instance with no signers.
      *
      * @see #Application(File, String, List, String[], String[])
@@ -106,103 +89,20 @@ public class Application
 
     /**
      * Returns a resource that refers to the application configuration file itself.
-     * @todo: remove!
+     * todo: remove!
      */
     public Resource getConfigResource () {
         return ConfigUtil.getConfigResource(getAppdir(), getAppbase());
     }
 
     /**
-     * Returns a list of the code {@link Resource} objects used by this application.
+     * @deprecated use Configuration#getResources() instead!
      */
-    public List<Resource> getCodeResources ()
-    {
-        return _codes;
-    }
+    public ResourceGroup getResources() { return _resources; }
 
-    /**
-     * Returns a list of the non-code {@link Resource} objects used by this application.
-     */
-    public List<Resource> getResources ()
-    {
-        return _resources;
-    }
-
-    /**
-     * Returns a list of all the active {@link Resource} objects used by this application (code and
-     * non-code).
-     */
-    public List<Resource> getAllActiveResources ()
-    {
-        List<Resource> allResources = new ArrayList<Resource>();
-        allResources.addAll(getActiveCodeResources());
-        allResources.addAll(getActiveResources());
-        return allResources;
-    }
-
-    /**
-     * Returns the auxiliary resource group with the specified name, or null.
-     */
-    public AuxGroup getAuxGroup (String name)
-    {
-        return _auxgroups.get(name);
-    }
-
-    /**
-     * Returns the set of all auxiliary resource groups defined by the application. An auxiliary
-     * resource group is a collection of resource files that are not downloaded unless a group
-     * token file is present in the application directory.
-     */
-    public Iterable<AuxGroup> getAuxGroups ()
-    {
-        return _auxgroups.values();
-    }
-
-    /**
-     * Returns true if the specified auxgroup has been "activated", false if not. Non-activated
-     * groups should be ignored, activated groups should be downloaded and patched along with the
-     * main resources.
-     */
-    public boolean isAuxGroupActive (String auxgroup)
-    {
-        Boolean active = _auxactive.get(auxgroup);
-        if (active == null) {
-            // TODO: compare the contents with the MD5 hash of the auxgroup name and the client's
-            // machine ident
-            active = getLocalPath(auxgroup + ".dat").exists();
-            _auxactive.put(auxgroup, active);
-        }
-        return active;
-    }
-
-    /**
-     * Returns all main code resources and all code resources from active auxiliary resource groups.
-     */
-    public List<Resource> getActiveCodeResources ()
-    {
-        ArrayList<Resource> codes = new ArrayList<Resource>();
-        codes.addAll(getCodeResources());
-        for (AuxGroup aux : getAuxGroups()) {
-            if (isAuxGroupActive(aux.name)) {
-                codes.addAll(aux.codes);
-            }
-        }
-        return codes;
-    }
-
-    /**
-     * Returns all non-code resources and all resources from active auxiliary resource groups.
-     */
-    public List<Resource> getActiveResources ()
-    {
-        ArrayList<Resource> rsrcs = new ArrayList<Resource>();
-        rsrcs.addAll(getResources());
-        for (AuxGroup aux : getAuxGroups()) {
-            if (isAuxGroupActive(aux.name)) {
-                rsrcs.addAll(aux.rsrcs);
-            }
-        }
-        return rsrcs;
+    // todo: rename to getResources()
+    public ResourceGroup getActiveResources() {
+        return getResources().getActiveResources(getAppdir());
     }
 
     /**
@@ -211,7 +111,7 @@ public class Application
      *
      * @param auxgroup the auxiliary resource group for which a patch resource is desired or null
      * for the main application patch resource.
-     * @param version
+     * @param version the version to patch to
      */
     public Resource getPatchResource(String auxgroup, String version) {
         String infix = (auxgroup == null) ? "" : ("-" + auxgroup);
@@ -265,7 +165,7 @@ public class Application
      * start URL was configured for this application.
      *
      * @param event the event to be reported: start, jvm_start, jvm_complete, complete.
-     * @todo: move to own data-class or utility
+     * todo: move to own data-class or utility
      */
     public URL getTrackingURL(String event) {
         return TrackingUtil.getTrackingURL(event, _trackingURLSuffix, _trackingURL, _trackingGAHash, _trackingStart, _trackingId);
@@ -275,7 +175,7 @@ public class Application
      * Returns the URL to request to report that we have reached the specified percentage of our
      * initial download. Returns null if no tracking request was configured for the specified
      * percentage.
-     * @todo: move to own data-class or utility
+     * todo: move to own data-class or utility
      */
     public URL getTrackingProgressURL(int percent) {
         return TrackingUtil.getTrackingProgressURL(this, percent, _trackingPcts);
@@ -283,7 +183,7 @@ public class Application
 
     /**
      * Returns the name of our tracking cookie or null if it was not set.
-     * @todo: move to own data-class or utility
+     * todo: move to own data-class or utility
      */
     public String getTrackingCookieName ()
     {
@@ -292,7 +192,7 @@ public class Application
 
     /**
      * Returns the name of our tracking cookie system property or null if it was not set.
-     * @todo: move to own data-class or utility
+     * todo: move to own data-class or utility
      */
     public String getTrackingCookieProperty ()
     {
@@ -309,7 +209,7 @@ public class Application
      *
      * @exception IOException thrown if there is an error reading the file or an error encountered
      * during its parsing.
-     * @TODO: move setting of _class, _appbase, _version, to updateMetaData
+     * todo: move setting of _class, _appbase, _version, to updateMetaData
      */
     public UpdateInterface init (boolean checkPlatform)
         throws IOException
@@ -391,34 +291,17 @@ public class Application
         if (config.getStringArray("code") == null) {
             throw new IOException("m.missing_code");
         }
-        config.parseResources(getVersion(), "code", false, _codes);
 
-        // parse our non-code resources
-        config.parseResources(getVersion(), "resource", false, _resources);
-        config.parseResources(getVersion(), "uresource", true, _resources);
-
-        // parse our auxiliary resource groups
-        for (String auxgroup : config.parseList("auxgroups")) {
-            ArrayList<Resource> codes = new ArrayList<Resource>();
-            config.parseResources(getVersion(), auxgroup + ".code", false, codes);
-            ArrayList<Resource> rsrcs = new ArrayList<Resource>();
-            config.parseResources(getVersion(), auxgroup + ".resource", false, rsrcs);
-            config.parseResources(getVersion(), auxgroup + ".uresource", true, rsrcs);
-            _auxgroups.put(auxgroup, new AuxGroup(auxgroup, codes, rsrcs));
-        }
+        _resources = config.getResources();
 
         // transfer our JVM arguments
         String[] jvmargs = config.getStringArray("jvmarg");
         if (jvmargs != null) {
-            for (String jvmarg : jvmargs) {
-                _jvmargs.add(jvmarg);
-            }
+            Collections.addAll(_jvmargs, jvmargs);
         }
 
         // Add the launch specific JVM arguments
-        for (String arg : _extraJvmArgs) {
-            _jvmargs.add(arg);
-        }
+        Collections.addAll(_jvmargs, _extraJvmArgs);
 
         // get the set of optimum JVM arguments
         _optimumJvmArgs = config.getStringArray("optimum_jvmarg");
@@ -426,15 +309,11 @@ public class Application
         // transfer our application arguments
         String[] appargs = config.getStringArray(prefix + "apparg");
         if (appargs != null) {
-            for (String apparg : appargs) {
-                _appargs.add(apparg);
-            }
+            Collections.addAll(_appargs, appargs);
         }
 
         // add the launch specific application arguments
-        for (String arg : _extraAppArgs) {
-            _appargs.add(arg);
-        }
+        Collections.addAll(_appargs, _extraAppArgs);
 
         // look for custom arguments
         fillAssignmentListFromPairs("extra.txt", _txtJvmArgs);
@@ -458,9 +337,7 @@ public class Application
     }
 
     private void clear() {
-        _codes.clear();
         _resources.clear();
-        _auxgroups.clear();
         _jvmargs.clear();
         _appargs.clear();
         _txtJvmArgs.clear();
@@ -572,7 +449,7 @@ public class Application
     /**
      * Downloads and replaces the <code>getdown.txt</code> and <code>digest.txt</code> files with
      * those for the target version of our application.
-     * @param targetVersion
+     * @param targetVersion the target-version to update the meta-data to
      */
     public void updateMetadata(String targetVersion)
         throws IOException
@@ -617,7 +494,7 @@ public class Application
     {
         // create our classpath
         StringBuilder cpbuf = new StringBuilder();
-        for (Resource rsrc : getActiveCodeResources()) {
+        for (Resource rsrc : getActiveResources().getResources(ResourceType.CODE_FILE)) {
             if (cpbuf.length() > 0) {
                 cpbuf.append(File.pathSeparator);
             }
@@ -724,7 +601,7 @@ public class Application
     {
         // create a custom class loader
         ArrayList<URL> jars = new ArrayList<URL>();
-        for (Resource rsrc : getActiveCodeResources()) {
+        for (Resource rsrc : getActiveResources().getResources(ResourceType.CODE_FILE)) {
             try {
                 jars.add(new URL("file", "", rsrc.getLocalFile().getAbsolutePath()));
             } catch (Exception e) {
@@ -778,7 +655,7 @@ public class Application
             try {
                 // first see if the class has a special applet-aware main
                 main = appclass.getMethod("main", JApplet.class, SA_PROTO.getClass());
-                main.invoke(null, new Object[] { applet, args });
+                main.invoke(null, applet, args);
             } catch (NoSuchMethodException nsme) {
                 main = appclass.getMethod("main", SA_PROTO.getClass());
                 main.invoke(null, new Object[] { args });
@@ -897,7 +774,7 @@ public class Application
         ProgressObserver obs, int[] alreadyValid, Set<Resource> unpacked)
             throws InterruptedException
     {
-        List<Resource> rsrcs = getAllActiveResources();
+        Collection<Resource> rsrcs = getActiveResources().getResources(ResourceType.CONFIGURABLE_RESOURCES);
         List<Resource> failures = new ArrayList<Resource>();
 
         // total up the file size of the resources to validate
@@ -959,7 +836,7 @@ public class Application
     public void unpackResources (ProgressObserver obs, Set<Resource> unpacked)
         throws InterruptedException
     {
-        List<Resource> rsrcs = getActiveResources();
+        Collection<Resource> rsrcs = getActiveResources().getResources(ResourceType.RESOURCE_ARCHIVE);
 
         // total up the file size of the resources to unpack
         long totalSize = 0L;
@@ -988,18 +865,9 @@ public class Application
     /**
      * Clears all validation marker files.
      */
-    private void clearValidationMarkers () {
-        clearValidationMarkers(getAllActiveResources().iterator());
-    }
-
-    /**
-     * Clears all validation marker files for the resources in the supplied iterator.
-     */
-    private
-    void clearValidationMarkers (Iterator<Resource> iter)
-    {
-        while (iter.hasNext()) {
-            iter.next().clearMarker();
+    private void clearValidationMarkers() {
+        for (Resource resource : getActiveResources().getResources(ResourceType.CONFIGURABLE_RESOURCES)) {
+            resource.clearMarker();
         }
     }
 
@@ -1066,53 +934,6 @@ public class Application
         }
     }
 
-    /**
-     * Download a path to a temporary file, returning a {@link File} instance with the path
-     * contents.
-     */
-    protected File downloadFile (String path)
-        throws IOException
-    {
-        File target = getLocalPath(path + "_new");
-
-        URL targetURL = null;
-        try {
-            targetURL = new URL(getAppbase(), path);
-        } catch (Exception e) {
-            log.warning("Requested to download invalid file",
-                "appbase", getAppbase(), "path", path, "error", e);
-            throw (IOException) new IOException("Invalid path '" + path + "'.").initCause(e);
-        }
-
-        log.info("Attempting to refetch '" + path + "' from '" + targetURL + "'.");
-
-        // stream the URL into our temporary file
-        InputStream fin = null;
-        FileOutputStream fout = null;
-        try {
-            URLConnection uconn = ConnectionUtil.open(targetURL);
-            // we have to tell Java not to use caches here, otherwise it will cache any request for
-            // same URL for the lifetime of this JVM (based on the URL string, not the URL object);
-            // if the getdown.txt file, for example, changes in the meanwhile, we would never hear
-            // about it; turning off caches is not a performance concern, because when Getdown asks
-            // to download a file, it expects it to come over the wire, not from a cache
-            uconn.setUseCaches(false);
-            // configure a connect timeout if requested
-            int ctimeout = SysProps.connectTimeout();
-            if (ctimeout > 0) {
-                uconn.setConnectTimeout(ctimeout * 1000);
-            }
-            fin = uconn.getInputStream();
-            fout = new FileOutputStream(target);
-            StreamUtil.copy(fin, fout);
-        } finally {
-            StreamUtil.close(fin);
-            StreamUtil.close(fout);
-        }
-
-        return target;
-    }
-
     private File _appdir;
     protected String _appid;
     private Digests digests;
@@ -1138,10 +959,8 @@ public class Application
     protected boolean _javaExactVersionRequired;
     protected String _javaLocation;
 
-    protected List<Resource> _codes = new ArrayList<Resource>();
-    protected List<Resource> _resources = new ArrayList<Resource>();
+    private ResourceGroup _resources = new ResourceGroup();
 
-    protected Map<String,AuxGroup> _auxgroups = new HashMap<String,AuxGroup>();
     protected Map<String,Boolean> _auxactive = new HashMap<String,Boolean>();
 
     protected List<String> _jvmargs = new ArrayList<String>();

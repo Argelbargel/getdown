@@ -9,6 +9,7 @@ import com.threerings.getdown.util.VersionUtil;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.List;
@@ -22,8 +23,8 @@ public class Configuration {
     private final Map<String, Object> data;
 
 
-    public Configuration(File appdir, URL appbase, Map<String, Object> data) {
-        this.appdir = appdir;
+    public Configuration(File file, URL appbase, Map<String, Object> data) {
+        this.appdir = file;
         this.appbase = appbase;
         this.data = data;
     }
@@ -47,7 +48,9 @@ public class Configuration {
     private static String[] getMultiValue (Map<String, Object> data, String name)
     {
         Object value = data.get(name);
-        if (value instanceof String) {
+        if (value == null) {
+            return new String[0];
+        } else if (value instanceof String) {
             return new String[] { (String)value };
         } else {
             return (String[])value;
@@ -130,7 +133,7 @@ public class Configuration {
     }
 
     /** Parses a list of strings from the config file. */
-    public String[] parseList(String name) {
+    public String[] getList(String name) {
         String value = (String) data.get(name);
         return (value == null) ? ArrayUtil.EMPTY_STRING : StringUtil.parseStringArray(value);
     }
@@ -160,5 +163,42 @@ public class Configuration {
 
     public String getString(String key) {
         return (String) data.get(key);
+    }
+
+
+    public final ResourceGroup getResources() {
+        URL vappbase = VersionUtil.createVersionedUrl(appbase, VersionUtil.getLocalVersion(appdir));
+
+        ResourceGroup resources = new ResourceGroup();
+        addResources(resources, vappbase);
+
+        for (String auxgroup : getList("auxgroups")) {
+            addResources(resources.getSubgroup(auxgroup), vappbase);
+        }
+
+
+        return resources;
+    }
+
+    public final ResourceGroup getActiveResources() {
+        return getResources().getActiveResources(appdir);
+    }
+
+
+    private void addResources(ResourceGroup resources, URL appbase) {
+        String prefix = resources.getName();
+        if (!StringUtil.isBlank(prefix)) {
+            prefix += ".";
+        }
+
+        for (ResourceType type : ResourceType.ANY) {
+            for (String path : getStringArray(prefix + type.getId())) {
+                try {
+                    resources.addResources(Resource.create(type, appdir, appbase, path));
+                } catch (MalformedURLException e) {
+                    log.warning("ignoring invalid resource-path " + path);
+                }
+            }
+        }
     }
 }

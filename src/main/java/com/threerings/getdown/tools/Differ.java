@@ -6,8 +6,8 @@
 package com.threerings.getdown.tools;
 
 import com.samskivert.io.StreamUtil;
-import com.threerings.getdown.data.Application;
-import com.threerings.getdown.data.Resource;
+import com.threerings.getdown.data.*;
+import com.threerings.getdown.util.ConfigUtil;
 import com.threerings.getdown.util.DigestsUtil;
 
 import java.io.*;
@@ -49,34 +49,29 @@ public class Differ
                                   ", overs=" + overs + "].");
         }
 
-        Application oapp = new Application(ovdir, null);
-        oapp.init(false);
+        Configuration oconf = ConfigUtil.readConfigFile(ovdir, false);
         ArrayList<Resource> orsrcs = new ArrayList<Resource>();
-        orsrcs.addAll(oapp.getCodeResources());
-        orsrcs.addAll(oapp.getResources());
+        orsrcs.addAll(oconf.getResources().getResources(ResourceType.CONFIGURABLE_RESOURCES));
 
-        Application napp = new Application(nvdir, null);
-        napp.init(false);
+        Configuration nconf = ConfigUtil.readConfigFile(nvdir, false);
         ArrayList<Resource> nrsrcs = new ArrayList<Resource>();
-        nrsrcs.addAll(napp.getCodeResources());
-        nrsrcs.addAll(napp.getResources());
+        nrsrcs.addAll(nconf.getResources().getResources(ResourceType.CONFIGURABLE_RESOURCES));
 
         // first create a patch for the main application
         File patch = new File(nvdir, "patch" + overs + ".dat");
         createPatch(patch, orsrcs, nrsrcs, verbose);
 
         // next create patches for any auxiliary resource groups
-        for (Application.AuxGroup ag : napp.getAuxGroups()) {
+        for (ResourceGroup ag : nconf.getResources().getSubgroups()) {
             orsrcs = new ArrayList<Resource>();
-            Application.AuxGroup oag = oapp.getAuxGroup(ag.name);
+            ResourceGroup oag = oconf.getResources().getSubgroup(ag.getName());
             if (oag != null) {
-                orsrcs.addAll(oag.codes);
-                orsrcs.addAll(oag.rsrcs);
+                orsrcs.addAll(oag.getResources(ResourceType.CONFIGURABLE_RESOURCES));
             }
+
             nrsrcs = new ArrayList<Resource>();
-            nrsrcs.addAll(ag.codes);
-            nrsrcs.addAll(ag.rsrcs);
-            patch = new File(nvdir, "patch-" + ag.name + overs + ".dat");
+            nrsrcs.addAll(ag.getResources(ResourceType.CONFIGURABLE_RESOURCES));
+            patch = new File(nvdir, "patch-" + ag.getName() + overs + ".dat");
             createPatch(patch, orsrcs, nrsrcs, verbose);
         }
     }

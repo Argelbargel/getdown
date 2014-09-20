@@ -451,7 +451,7 @@ public abstract class GetdownController extends Thread
                     reportTrackingEvent("app_start", -1);
 
                     // redownload any that are corrupt or invalid...
-                    log.info(failures.size() + " of " + _app.getAllActiveResources().size() +
+                    log.info(failures.size() + " of " + _app.getActiveResources().getResources(ResourceType.CONFIGURABLE_RESOURCES).size() +
                              " rsrcs require update (" + alreadyValid[0] + " assumed valid).");
                     setStep(Step.REDOWNLOAD_RESOURCES);
                     download(failures);
@@ -601,9 +601,9 @@ public abstract class GetdownController extends Thread
         }
 
         // add the auxiliary group patch files for activated groups
-        for (Application.AuxGroup aux : _app.getAuxGroups()) {
-            if (_app.isAuxGroupActive(aux.name)) {
-                patch = _app.getPatchResource(aux.name, targetVersion);
+        for (ResourceGroup aux : _app.getResources().getSubgroups()) {
+            if (LaunchUtil.isAuxGroupActive(_app.getAppdir(), aux.getName())) {
+                patch = _app.getPatchResource(aux.getName(), targetVersion);
                 if (patch != null) {
                     patches.add(patch);
                 }
@@ -921,7 +921,7 @@ public abstract class GetdownController extends Thread
 
     protected RotatingBackgrounds getBackground ()
     {
-        if (_ifc.rotatingBackgrounds != null) {
+        if (_ifc.rotatingBackgrounds.length > 0) {
             if (_ifc.backgroundImage != null) {
                 log.warning("ui.background_image and ui.rotating_background were both specified. " +
                             "The rotating images are being used.");

@@ -17,7 +17,7 @@ public class ResourceGroupTest {
 
     @Before
     public void createResources() throws MalformedURLException {
-        r1 = FileTestHelper.createLocalResource(ResourceType.RESOURCE_CODE, new File("./test1"));
+        r1 = FileTestHelper.createLocalResource(ResourceType.CODE_FILE, new File("./test1"));
         r2 = FileTestHelper.createLocalResource(ResourceType.RESOURCE_FILE, new File("./test2"));
         r3 = FileTestHelper.createLocalResource(ResourceType.RESOURCE_ARCHIVE, new File("./test3"));
     }
@@ -61,7 +61,7 @@ public class ResourceGroupTest {
 
         assertThat(rg.getResources(), hasItems(r1, r2));
         assertThat(rg.getResources(ResourceType.ANY), hasItems(r1, r2));
-        assertThat(rg.getResources(ResourceType.RESOURCE_CODE), hasItems(r1));
+        assertThat(rg.getResources(ResourceType.CODE_FILE), hasItems(r1));
         assertThat(rg.getResources(ResourceType.RESOURCE_FILE), hasItems(r2));
         assertTrue(rg.getResources(ResourceType.CONFIG_FILE).isEmpty());
     }

@@ -1,5 +1,9 @@
 package com.threerings.getdown.data;
 
+import com.threerings.getdown.util.LaunchUtil;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -41,6 +45,17 @@ public class ResourceGroup {
 
     public final Collection<Resource> getResources(ResourceType... types) {
         return filterResources(resourceMap.get(name), types);
+    }
+
+    public final ResourceGroup getActiveResources(File appdir) {
+        ResourceGroup active = new ResourceGroup();
+        for (Map.Entry<String, Collection<Resource>> entry : resourceMap.entrySet()) {
+            if (LaunchUtil.isAuxGroupActive(appdir, entry.getKey())) {
+                active.addResources(entry.getValue());
+            }
+        }
+
+        return active;
     }
 
     private Collection<Resource> filterResources(Collection<Resource> resources, ResourceType... allowedTypes) {

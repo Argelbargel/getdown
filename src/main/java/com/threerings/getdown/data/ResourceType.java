@@ -6,7 +6,7 @@ import java.util.Iterator;
 
 public enum ResourceType implements Iterable<ResourceType> {
     CONFIG_FILE("", false),
-    RESOURCE_CODE("code", false),
+    CODE_FILE("code", false),
     DIGEST("", false),
     DIGEST_SIGNATURE("", false),
     FULL_APPLICATION("full", false),
@@ -16,8 +16,8 @@ public enum ResourceType implements Iterable<ResourceType> {
     RESOURCE_ARCHIVE("uresource", true),
 
     NON_CODE_RESOURCES("", false, RESOURCE_FILE, RESOURCE_ARCHIVE),
-    CONFIGURABLE_RESOURCES("", false, RESOURCE_FILE, RESOURCE_ARCHIVE, RESOURCE_CODE),
-    ANY("", false, CONFIG_FILE, RESOURCE_CODE, DIGEST, DIGEST_SIGNATURE, FULL_APPLICATION, JRE_ARCHIVE, PATCH, RESOURCE_FILE, RESOURCE_ARCHIVE);
+    CONFIGURABLE_RESOURCES("", false, RESOURCE_FILE, RESOURCE_ARCHIVE, CODE_FILE),
+    ANY("", false, CONFIG_FILE, CODE_FILE, DIGEST, DIGEST_SIGNATURE, FULL_APPLICATION, JRE_ARCHIVE, PATCH, RESOURCE_FILE, RESOURCE_ARCHIVE);
 
     private final String id;
     private final boolean unpack;
