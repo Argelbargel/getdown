@@ -46,13 +46,13 @@ public class Tracking {
 
     }
 
-    public TrackingReporter createReporter(int progress) {
+    TrackingReporter createReporter(int progress) {
         String evt = percents.contains(progress) ?  "pct" + progress : null;
         return new TrackingReporter(evt);
     }
 
 
-    public TrackingReporter createReporter(String event) {
+    TrackingReporter createReporter(String event) {
         return new TrackingReporter(event);
     }
 
