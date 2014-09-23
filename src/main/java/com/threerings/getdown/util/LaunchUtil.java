@@ -43,6 +43,14 @@ public class LaunchUtil {
         return relaunch(appdir, getdownJarName);
     }
 
+    public static boolean shouldInstallSilently() {
+        return !StringUtil.isBlank(SysProps.silent());
+    }
+
+    public static boolean shouldLaunch() {
+        return !shouldInstallSilently() || "launch".equalsIgnoreCase(SysProps.silent());
+    }
+
 
     public static boolean isAuxGroupActive(File appdir, String name) {
         try {

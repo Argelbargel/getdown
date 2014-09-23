@@ -50,18 +50,7 @@ public abstract class GetdownController extends Thread
                              String[] jvmargs, String[] appargs)
     {
         super("Getdown");
-        try {
-            // If the silent property exists, install without bringing up any gui. If it equals
-            // launch, start the application after installing. Otherwise, just install and exit.
-            _silent = SysProps.silent();
-            if (_silent) {
-                _launchInSilent = SysProps.launchInSilent();
-            }
-            _delay = SysProps.startDelay();
-        } catch (SecurityException se) {
-            // don't freak out, just assume non-silent and no delay; we're probably already
-            // recovering from a security failure
-        }
+        _delay = SysProps.startDelay();
         try {
             _msgs = ResourceBundle.getBundle("com.threerings.getdown.messages");
         } catch (Exception e) {
@@ -121,7 +110,7 @@ public abstract class GetdownController extends Thread
             // run the app anyway because we're prepared to cope with not being able to update
             if (detectProxy() || _app.allowOffline()) {
                 getdown();
-            } else if (_silent) {
+            } else if (LaunchUtil.shouldInstallSilently()) {
                 log.warning("Need a proxy, but we don't want to bother anyone.  Exiting.");
             } else {
                 // create a panel they can use to configure the proxy settings
@@ -431,7 +420,7 @@ public abstract class GetdownController extends Thread
 
                     // Only launch if we aren't in silent mode. Some mystery program starting out
                     // of the blue would be disconcerting.
-                    if (!_silent || _launchInSilent) {
+                    if (LaunchUtil.shouldLaunch()) {
                         if (Thread.interrupted()) {
                             // One last interrupted check so we don't launch as the applet aborts
                             throw new InterruptedException("m.applet_stopped");
@@ -819,7 +808,7 @@ public abstract class GetdownController extends Thread
      */
     protected void createInterface (final boolean reinit)
     {
-        if (_silent || (_container != null && !reinit)) {
+        if (LaunchUtil.shouldInstallSilently() || (_container != null && !reinit)) {
             return;
         }
 
@@ -1124,8 +1113,6 @@ public abstract class GetdownController extends Thread
     protected RotatingBackgrounds _background;
 
     protected boolean _dead;
-    protected boolean _silent;
-    protected boolean _launchInSilent;
     protected long _startup;
 
     protected boolean _enableTracking = true;
