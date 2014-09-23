@@ -45,9 +45,9 @@ public class Configuration {
      * Massages a single string into an array and leaves existing array values as is. Simplifies
      * access to parameters that are expected to be arrays.
      */
-    private static String[] getMultiValue (Map<String, Object> data, String name)
+    private String[] getMultiValue (Map<String, Object> data, String name)
     {
-        Object value = data.get(name);
+        Object value = getValue(name);
         if (value == null) {
             return new String[0];
         } else if (value instanceof String) {
@@ -61,23 +61,9 @@ public class Configuration {
         return data.get(key);
     }
 
-    public void parseResources(String version, String name, boolean unpack, List<Resource> list) {
-        String[] rsrcs = getMultiValue(data, name);
-        if (rsrcs == null) {
-            return;
-        }
-        for (String rsrc : rsrcs) {
-            try {
-                list.add(Resource.create(appdir, VersionUtil.createVersionedUrl(appbase, version), rsrc, unpack));
-            } catch (Exception e) {
-                log.warning("Invalid resource '" + rsrc + "'. " + e);
-            }
-        }
-    }
-
 
     public Rectangle getRectangle(String name, Rectangle def) {
-        String value = (String) data.get(name);
+        String value = getString(name);
         Rectangle rect = parseRect(name, value);
         return (rect == null) ? def : rect;
     }
@@ -111,7 +97,7 @@ public class Configuration {
 
     /** Used to parse color specifications from the config file. */
     public Color getColor(String name, Color def) {
-        String value = (String) data.get(name);
+        String value = getString(name);
         Color color = parseColor(value);
         return (color == null) ? def : color;
     }
@@ -134,7 +120,7 @@ public class Configuration {
 
     /** Parses a list of strings from the config file. */
     public String[] getList(String name) {
-        String value = (String) data.get(name);
+        String value = getString(name);
         return (value == null) ? ArrayUtil.EMPTY_STRING : StringUtil.parseStringArray(value);
     }
 
@@ -143,11 +129,11 @@ public class Configuration {
      * Parses a URL from the config file, checking first for a localized version.
      */
     public String getUrl(String name, String def) {
-        String value = (String) data.get(name + "." + Locale.getDefault().getLanguage());
+        String value = getString(name + "." + Locale.getDefault().getLanguage());
         if (!StringUtil.isBlank(value)) {
             return value;
         }
-        value = (String) data.get(name);
+        value = getString(name);
         return StringUtil.isBlank(value) ? def : value;
     }
 
@@ -162,7 +148,7 @@ public class Configuration {
    }
 
     public String getString(String key) {
-        Object value = data.get(key);
+        Object value = getValue(key);
         return (value != null) ? String.valueOf(value) : "";
     }
 
@@ -205,5 +191,42 @@ public class Configuration {
 
     public boolean getBoolean(String key) {
         return Boolean.parseBoolean(getString(key));
+    }
+
+    /**
+     * Returns true if we either have no version requirement, are running in a JVM that meets our
+     * version requirements or have what appears to be a version of the JVM that meets our
+     * requirements.
+     */
+    public boolean haveValidJavaVersion() throws IOException {
+        String _javaMinVersion = getString("java_min_version");
+        String _javaMaxVersion = getString("java_max_version");
+        boolean _javaExactVersionRequired = getBoolean("java_exact_version_required");
+        String _javaLocation = getString("java_location");
+
+        // if we're doing no version checking, then yay!
+        if (!VersionUtil.isValidVersion(_javaMinVersion) && !VersionUtil.isValidVersion(_javaMaxVersion)) {
+            return true;
+        }
+
+        // if we have a fully unpacked VM assume it is the right version (TODO: don't)
+        Resource vmjar = Resource.create(ResourceType.JRE_ARCHIVE, getAppdir(), getAppbase(), _javaLocation);
+        if (vmjar != null && vmjar.isMarkedValid()) {
+            return true;
+        }
+
+        if (_javaExactVersionRequired) {
+            if (SysProps.javaVersion().equals(_javaMinVersion)) {
+                return true;
+            } else {
+                log.warning("An exact Java VM version is required.", "current", SysProps.javaVersion(),
+                        "required", _javaMinVersion);
+                return false;
+            }
+        }
+
+        boolean minVersionOK = !VersionUtil.isValidVersion(_javaMinVersion) || VersionUtil.compareVersions(SysProps.javaVersion(), _javaMinVersion) >= 0;
+        boolean maxVersionOK = !VersionUtil.isValidVersion(_javaMaxVersion) || VersionUtil.compareVersions(SysProps.javaVersion(), _javaMaxVersion) <= 0;
+        return minVersionOK && maxVersionOK;
     }
 }

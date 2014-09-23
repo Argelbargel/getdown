@@ -133,13 +133,11 @@ public class Application {
         if (StringUtil.isBlank(_javaLocation)) {
             return null;
         }
-
-        String vmfile = LaunchUtil.LOCAL_JAVA_DIR + ".jar";
         try {
-            return Resource.create(getAppdir(), getAppbase(), vmfile, true);
+            return Resource.create(ResourceType.JRE_ARCHIVE, getAppdir(), getAppbase(), _javaLocation);
         } catch (Exception e) {
-            log.warning("Failed to create VM resource", "vmfile", vmfile, "appbase", getAppbase(),
-                "tvers", getVersion(), "javaloc", _javaLocation, "error", e);
+            log.warning("Failed to create VM resource", "appdir", getAppdir(),
+                    "javaloc", _javaLocation, "error", e);
             return null;
         }
     }
@@ -201,11 +199,6 @@ public class Application {
         if (_class == null) {
             throw new IOException("m.missing_class");
         }
-
-        _javaMinVersion = Configuration.parseJavaVersion(config.getString("java_min_version"), "m.invalid_java_version");
-        _javaMaxVersion = Configuration.parseJavaVersion(config.getString("java_max_version"), "m.invalid_java_version");
-        _javaExactVersionRequired = config.getBoolean("java_exact_version_required");
-        _javaLocation = config.getString("java_location");
 
         tracking = new Tracking(config.getString("tracking_url"),
                                 config.getString("tracking_url_suffix"),
@@ -310,43 +303,13 @@ public class Application {
      * version requirements or have what appears to be a version of the JVM that meets our
      * requirements.
      */
-    public boolean haveValidJavaVersion ()
-    {
-        // if we're doing no version checking, then yay!
-        if (_javaMinVersion == 0 && _javaMaxVersion == 0) {
-            return true;
-        }
-
-        // if we have a fully unpacked VM assume it is the right version (TODO: don't)
-        Resource vmjar = getJavaVMResource();
-        if (vmjar != null && vmjar.isMarkedValid()) {
-            return true;
-        }
-
-        int version;
+    public boolean haveValidJavaVersion () {
         try {
-           version = Configuration.parseJavaVersion(SysProps.javaVersion(), "");
+            Configuration config = ConfigUtil.readConfigFile(getAppdir(), true);
+            return config.haveValidJavaVersion();
         } catch (IOException e) {
-           // if we can't parse the java version we're in weird land and should probably just try
-           // our luck with what we've got rather than try to download a new jvm
-           log.warning("Unable to parse VM version, hoping for the best",
-                 "version", SysProps.javaVersion(), "needed", _javaMinVersion);
-           return true;
+            return false;
         }
-
-        if (_javaExactVersionRequired) {
-            if (version == _javaMinVersion) {
-                return true;
-            } else {
-                log.warning("An exact Java VM version is required.", "current", version,
-                            "required", _javaMinVersion);
-                return false;
-            }
-        }
-
-        boolean minVersionOK = (_javaMinVersion == 0) || (version >= _javaMinVersion);
-        boolean maxVersionOK = (_javaMaxVersion == 0) || (version <= _javaMaxVersion);
-        return minVersionOK && maxVersionOK;
     }
 
     /**
@@ -879,8 +842,6 @@ public class Application {
     protected boolean _windebug;
     protected boolean _allowOffline;
 
-    protected int _javaMinVersion, _javaMaxVersion;
-    protected boolean _javaExactVersionRequired;
     protected String _javaLocation;
 
     private ResourceGroup _resources = new ResourceGroup();
