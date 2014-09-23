@@ -54,7 +54,7 @@ public class Digester
      * Creates a digest file in the specified application directory.
      */
     private static Digests createDigests(File appdir) throws IOException {
-        // create our application and instruct it to parse its business
+        // read the local configuration for all possible os-environments
         Configuration config = ConfigUtil.readConfigFile(appdir, false);
 
         ResourceGroup rsrcs = new ResourceGroup();
