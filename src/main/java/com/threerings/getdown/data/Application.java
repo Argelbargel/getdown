@@ -159,12 +159,8 @@ public class Application {
         }
     }
 
-    public Tracking getTracking() {
-        return tracking;
-    }
-
     public Tracking.TrackingReporter createTrackingReporter(int progress) {
-        return tracking.createReporter(+ progress);
+        return tracking.createReporter(+progress);
     }
 
     public Tracking.TrackingReporter createTrackingReporter(String event) {
@@ -206,22 +202,9 @@ public class Application {
             throw new IOException("m.missing_class");
         }
 
-        // check to see if we require a particular JVM version and have a supplied JVM
-        String vstr;
-        vstr = config.getString("java_version");
-        if (vstr != null) _javaMinVersion = Configuration.parseJavaVersion(vstr, "m.invalid_java_version");
-        // we support java_min_version as an alias of java_version; it better expresses the check
-        // that's going on and better mirrors java_max_version
-        vstr = config.getString("java_min_version");
-        if (vstr != null) _javaMinVersion = Configuration.parseJavaVersion(vstr, "m.invalid_java_version");
-
-        // check to see if we require a particular max JVM version and have a supplied JVM
-        vstr = config.getString("java_max_version");
-        if (vstr != null) _javaMaxVersion = Configuration.parseJavaVersion(vstr, "m.invalid_java_version");
-
-        // check to see if we require a particular JVM version and have a supplied JVM
-        vstr = config.getString("java_exact_version_required");
-        _javaExactVersionRequired = Boolean.parseBoolean(vstr);
+        _javaMinVersion = Configuration.parseJavaVersion(config.getString("java_min_version"), "m.invalid_java_version");
+        _javaMaxVersion = Configuration.parseJavaVersion(config.getString("java_max_version"), "m.invalid_java_version");
+        _javaExactVersionRequired = config.getBoolean("java_exact_version_required");
 
         // this is a little weird, but when we're run from the digester, we see a String[] which
         // contains java locations for all platforms which we can't grok, but the digester doesn't

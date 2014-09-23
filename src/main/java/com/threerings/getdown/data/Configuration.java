@@ -162,7 +162,8 @@ public class Configuration {
    }
 
     public String getString(String key) {
-        return (String) data.get(key);
+        Object value = data.get(key);
+        return (value != null) ? String.valueOf(value) : "";
     }
 
 
@@ -200,5 +201,9 @@ public class Configuration {
                 }
             }
         }
+    }
+
+    public boolean getBoolean(String key) {
+        return Boolean.parseBoolean(getString(key));
     }
 }
