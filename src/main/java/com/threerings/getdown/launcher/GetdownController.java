@@ -41,10 +41,6 @@ import static com.threerings.getdown.Log.log;
 public abstract class GetdownController extends Thread
     implements Application.StatusDisplay, ImageLoader
 {
-    public GetdownController(File appDir, String appId)
-    {
-        this(appDir, appId, null, null, null);
-    }
 
     public GetdownController(File appDir, String appId, List<Certificate> signers,
                              String[] jvmargs, String[] appargs)
