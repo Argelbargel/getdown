@@ -163,6 +163,14 @@ public class Application {
         return tracking;
     }
 
+    public Tracking.TrackingReporter createTrackingReporter(int progress) {
+        return tracking.createReporter(+ progress);
+    }
+
+    public Tracking.TrackingReporter createTrackingReporter(String event) {
+        return tracking.createReporter(event);
+    }
+
     /**
      * Instructs the application to parse its {@code getdown.txt} configuration and prepare itself
      * for operation. The application base URL will be parsed first so that if there are errors

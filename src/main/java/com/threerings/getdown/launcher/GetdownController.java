@@ -1028,19 +1028,16 @@ public abstract class GetdownController extends Thread
         });
     }
 
-    protected void reportTrackingEvent (String event, int progress)
-    {
-        if (!_enableTracking) {
-            return;
-
-        } else if (progress > 0) {
-            // we need to make sure we do the right thing if we skip over progress levels
-            do {
-                _app.getTracking().createReporter(++_reportedProgress).start();
-            } while (_reportedProgress <= progress);
-
-        } else {
-            _app.getTracking().createReporter(event).start();
+    protected void reportTrackingEvent (String event, int progress) {
+        if (_enableTracking) {
+            if (progress > 0) {
+                // we need to make sure we do the right thing if we skip over progress levels
+                do {
+                    _app.createTrackingReporter(++_reportedProgress).start();
+                } while (_reportedProgress <= progress);
+            } else {
+                _app.createTrackingReporter(event).start();
+            }
         }
     }
 
